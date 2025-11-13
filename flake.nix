@@ -10,52 +10,73 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
+
+        # Runtime dependencies for wrapping
+        runtimeDeps = with pkgs; [
+          pipewire
+          wl-clipboard
+          wtype
+          libnotify
+        ];
+
+        # Build hyprvoice package
+        buildHyprvoice = { doCheck ? false }: pkgs.buildGoModule {
+          pname = "hyprvoice";
+          version = "0.1.8";
+
+          src = ./.;
+
+          vendorHash = "sha256-qYZGccprn+pRbpVeO1qzSOb8yz/j/jdzPMxFyIB9BNA=";
+
+          inherit doCheck;
+
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            makeWrapper
+          ] ++ pkgs.lib.optionals doCheck runtimeDeps;
+
+          buildInputs = with pkgs; [
+            pipewire
+          ];
+
+          # Make runtime tools available during tests
+          preCheck = pkgs.lib.optionalString doCheck ''
+            export PATH="${pkgs.lib.makeBinPath runtimeDeps}:$PATH"
+          '';
+
+          # Runtime dependencies
+          makeWrapperArgs = [
+            "--prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}"
+          ];
+
+          postInstall = ''
+            wrapProgram $out/bin/hyprvoice \
+              ''${makeWrapperArgs[@]}
+          '';
+
+          meta = with pkgs.lib; {
+            description = "Voice-powered typing for Hyprland/Wayland";
+            homepage = "https://github.com/leonardotrapani/hyprvoice";
+            license = licenses.mit;
+            maintainers = [ ];
+            platforms = platforms.linux;
+            mainProgram = "hyprvoice";
+          };
+        };
       in
       {
         packages = {
-          default = pkgs.buildGoModule {
-            pname = "hyprvoice";
-            version = "0.1.8";
+          default = buildHyprvoice { };
+          hyprvoice = buildHyprvoice { };
+        };
 
-            src = ./.;
+        # Checks for CI/CD
+        checks = {
+          # Build check - ensures the package builds successfully
+          build = self.packages.${system}.default;
 
-            vendorHash = "sha256-qYZGccprn+pRbpVeO1qzSOb8yz/j/jdzPMxFyIB9BNA=";
-
-            # Skip tests that require runtime tools (wl-copy, wtype)
-            doCheck = false;
-
-            nativeBuildInputs = with pkgs; [
-              pkg-config
-              makeWrapper
-            ];
-
-            buildInputs = with pkgs; [
-              pipewire
-            ];
-
-            # Runtime dependencies
-            makeWrapperArgs = [
-              "--prefix PATH : ${pkgs.lib.makeBinPath [
-                pkgs.pipewire
-                pkgs.wl-clipboard
-                pkgs.wtype
-                pkgs.libnotify
-              ]}"
-            ];
-
-            postInstall = ''
-              wrapProgram $out/bin/hyprvoice \
-                ''${makeWrapperArgs[@]}
-            '';
-
-            meta = with pkgs.lib; {
-              description = "Voice-powered typing for Hyprland/Wayland";
-              homepage = "https://github.com/leonardotrapani/hyprvoice";
-              license = licenses.mit;
-              maintainers = [ ];
-              platforms = platforms.linux;
-            };
-          };
+          # Unit tests with runtime dependencies available
+          test = buildHyprvoice { doCheck = true; };
         };
 
         devShells.default = pkgs.mkShell {
@@ -64,6 +85,7 @@
             gopls
             gotools
             go-tools
+            golangci-lint
 
             # Runtime dependencies
             pipewire
@@ -82,14 +104,40 @@
             echo "Available commands:"
             echo "  go build ./cmd/hyprvoice  - Build the binary"
             echo "  go test ./...             - Run tests"
+            echo "  nix flake check           - Run all checks"
+            echo "  nix fmt                   - Format code"
             echo "  ./hyprvoice serve         - Start daemon"
             echo "  ./hyprvoice configure     - Interactive setup"
           '';
         };
 
-        apps.default = {
-          type = "app";
-          program = "${self.packages.${system}.default}/bin/hyprvoice";
+        # Formatter for 'nix fmt'
+        formatter = pkgs.writeShellScriptBin "formatter" ''
+          ${pkgs.go}/bin/gofmt -w .
+          ${pkgs.nixpkgs-fmt}/bin/nixpkgs-fmt flake.nix
+        '';
+
+        apps = {
+          default = {
+            type = "app";
+            program = "${self.packages.${system}.default}/bin/hyprvoice";
+          };
+          hyprvoice = {
+            type = "app";
+            program = "${self.packages.${system}.default}/bin/hyprvoice";
+          };
+          serve = {
+            type = "app";
+            program = "${pkgs.writeShellScript "hyprvoice-serve" ''
+              exec ${self.packages.${system}.default}/bin/hyprvoice serve "$@"
+            ''}";
+          };
+          configure = {
+            type = "app";
+            program = "${pkgs.writeShellScript "hyprvoice-configure" ''
+              exec ${self.packages.${system}.default}/bin/hyprvoice configure "$@"
+            ''}";
+          };
         };
       }
     ) // {
@@ -195,5 +243,10 @@
             };
           };
         };
+
+      # Overlay for easy integration into existing nixpkgs
+      overlays.default = final: prev: {
+        hyprvoice = self.packages.${final.system}.default;
+      };
     };
 }
