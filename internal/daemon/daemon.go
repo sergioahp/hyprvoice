@@ -190,8 +190,8 @@ func (d *Daemon) toggle() {
 		d.pipeline = p
 		d.mu.Unlock()
 
-		go d.notifier.Notify("Hyprvoice", "Recording Started")
-		go d.monitorPipelineErrors(p)
+		go d.notifier.RecordingStarted()
+		go d.monitorPipeline(p)
 
 	case pipeline.Recording:
 		d.stopPipeline()
@@ -207,7 +207,7 @@ func (d *Daemon) toggle() {
 		} else {
 			d.mu.RUnlock()
 		}
-		go d.notifier.Notify("Hyprvoice", "Recording Ended... Transcribing")
+		go d.notifier.Transcribing()
 
 	case pipeline.Injecting:
 		d.stopPipeline()
@@ -225,8 +225,28 @@ func (d *Daemon) cancelPipeline() {
 	}
 }
 
-func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
+func (d *Daemon) monitorPipeline(p pipeline.Pipeline) {
 	errorCh := p.GetErrorCh()
+	previousStatus := p.Status()
+
+	// Monitor for both errors and completion
+	go func() {
+		for {
+			select {
+			case <-d.ctx.Done():
+				return
+			default:
+				currentStatus := p.Status()
+				// If pipeline went from Injecting to Idle, it completed successfully
+				if previousStatus == pipeline.Injecting && currentStatus == pipeline.Idle {
+					d.notifier.RecordingComplete()
+					return
+				}
+				previousStatus = currentStatus
+			}
+		}
+	}()
+
 	for {
 		select {
 		case pipelineErr := <-errorCh:
