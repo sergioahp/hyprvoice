@@ -196,6 +196,16 @@
               description = "The hyprvoice package to use";
             };
 
+            environmentFile = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              description = ''
+                Path to a file containing environment variables (like API keys).
+                Format: KEY=value (one per line, no 'export' keyword).
+                Example: OPENAI_API_KEY=sk-...
+              '';
+            };
+
             settings = mkOption {
               type = types.attrs;
               default = { };
@@ -231,6 +241,8 @@
                 ExecStart = "${cfg.package}/bin/hyprvoice serve";
                 Restart = "on-failure";
                 RestartSec = "5s";
+              } // optionalAttrs (cfg.environmentFile != null) {
+                EnvironmentFile = cfg.environmentFile;
               };
 
               Install = {
