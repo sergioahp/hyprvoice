@@ -26,6 +26,145 @@ paru -S hyprvoice-bin
 
 The AUR package automatically installs all dependencies (`pipewire`, `wl-clipboard`, `wtype`, etc.) and sets up the systemd service. Follow the post-install instructions to complete setup.
 
+### Nix / Home Manager (Declarative Configuration)
+
+For NixOS and Home Manager users, hyprvoice is available as a Flake with both NixOS and Home Manager modules.
+
+#### Home Manager Module (Recommended)
+
+Add hyprvoice to your Home Manager flake inputs:
+
+```nix
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager.url = "github:nix-community/home-manager";
+    hyprvoice.url = "github:leonardotrapani/hyprvoice";
+  };
+
+  outputs = { nixpkgs, home-manager, hyprvoice, ... }: {
+    homeConfigurations."yourusername" = home-manager.lib.homeManagerConfiguration {
+      modules = [
+        ./home.nix
+        hyprvoice.homeManagerModules.default
+      ];
+    };
+  };
+}
+```
+
+Configure in your `home.nix`:
+
+```nix
+# home.nix
+{
+  services.hyprvoice = {
+    enable = true;
+
+    # Optional: Path to file with environment variables (for API keys)
+    # Format: KEY=value (one per line, no 'export' keyword)
+    environmentFile = "${config.home.homeDirectory}/.config/hyprvoice/env";
+
+    settings = {
+      recording = {
+        sample_rate = 16000;
+        channels = 1;
+        format = "s16";
+        buffer_size = 8192;
+        device = "";
+        channel_buffer_size = 30;
+        timeout = "5m";
+      };
+      transcription = {
+        provider = "openai";  # or "groq-transcription" or "groq-translation"
+        language = "";        # empty for auto-detect
+        model = "whisper-1";  # or "whisper-large-v3" for Groq
+      };
+      injection = {
+        mode = "fallback";
+        restore_clipboard = true;
+        wtype_timeout = "5s";
+        clipboard_timeout = "3s";
+      };
+      notifications = {
+        enabled = true;
+        type = "desktop";
+      };
+    };
+  };
+}
+```
+
+**API Key Setup:**
+
+Create `~/.config/hyprvoice/env` with your API key:
+
+```bash
+# ~/.config/hyprvoice/env
+OPENAI_API_KEY=sk-proj-your-key-here
+# or for Groq:
+# GROQ_API_KEY=gsk-your-key-here
+```
+
+**Note:** Don't use `export` in this file - just `KEY=value` format (systemd EnvironmentFile format).
+
+**What this does:**
+- Installs hyprvoice package with all dependencies (pipewire, wl-clipboard, wtype, libnotify)
+- Creates and enables `hyprvoice.service` systemd user service
+- Generates `~/.config/hyprvoice/config.toml` from your settings
+- Loads environment variables (API keys) securely via systemd EnvironmentFile
+
+**Keybinding integration** (for Hyprland users with Home Manager):
+
+```nix
+# In your home.nix or hyprland configuration
+wayland.windowManager.hyprland.settings = {
+  bind = [
+    "SUPER, R, exec, ${pkgs.hyprvoice}/bin/hyprvoice toggle"
+    "SUPER SHIFT, C, exec, ${pkgs.hyprvoice}/bin/hyprvoice cancel"
+  ];
+};
+```
+
+Apply the configuration:
+
+```bash
+home-manager switch --flake .#yourusername
+```
+
+#### NixOS System Module
+
+For system-wide installation on NixOS:
+
+```nix
+# configuration.nix or flake-based config
+{
+  inputs.hyprvoice.url = "github:leonardotrapani/hyprvoice";
+
+  # In your configuration:
+  services.hyprvoice.enable = true;
+
+  # Users still need to configure ~/.config/hyprvoice/config.toml
+  # Or use the Home Manager module for per-user declarative configuration
+}
+```
+
+#### Direct Flake Installation
+
+For testing or non-module usage:
+
+```bash
+# Run directly
+nix run github:leonardotrapani/hyprvoice
+
+# Install to profile
+nix profile install github:leonardotrapani/hyprvoice
+
+# Development shell
+nix develop github:leonardotrapani/hyprvoice
+```
+
 ### Alternative: Download Binary
 
 For non-Arch users or testing:
