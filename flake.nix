@@ -233,7 +233,8 @@
             systemd.user.services.hyprvoice = {
               Unit = {
                 Description = "Hyprvoice voice-to-text daemon";
-                After = [ "pipewire.service" ];
+                After = [ "pipewire.service" "graphical-session.target" ];
+                PartOf = [ "graphical-session.target" ];
               };
 
               Service = {
@@ -241,12 +242,14 @@
                 ExecStart = "${cfg.package}/bin/hyprvoice serve";
                 Restart = "on-failure";
                 RestartSec = "5s";
+                # Import Wayland display environment for clipboard/text injection
+                Environment = [ "PATH=${pkgs.lib.makeBinPath [ cfg.package ]}" ];
               } // optionalAttrs (cfg.environmentFile != null) {
                 EnvironmentFile = cfg.environmentFile;
               };
 
               Install = {
-                WantedBy = [ "default.target" ];
+                WantedBy = [ "graphical-session.target" ];
               };
             };
 
