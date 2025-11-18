@@ -237,16 +237,16 @@
                 PartOf = [ "graphical-session.target" ];
               };
 
-              Service = {
+              Service = ({
                 Type = "simple";
                 ExecStart = "${cfg.package}/bin/hyprvoice serve";
                 Restart = "on-failure";
                 RestartSec = "5s";
-                # Import Wayland display environment for clipboard/text injection
-                Environment = [ "PATH=${pkgs.lib.makeBinPath [ cfg.package ]}" ];
+                # Pass Wayland session environment for clipboard/wtype tools
+                PassEnvironment = "WAYLAND_DISPLAY DISPLAY";
               } // optionalAttrs (cfg.environmentFile != null) {
                 EnvironmentFile = cfg.environmentFile;
-              };
+              });
 
               Install = {
                 WantedBy = [ "graphical-session.target" ];
