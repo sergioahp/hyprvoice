@@ -244,12 +244,16 @@
                 RestartSec = "5s";
                 # Pass Wayland session environment for clipboard/wtype tools
                 PassEnvironment = "WAYLAND_DISPLAY DISPLAY";
+                # Note: Could add ConditionEnvironment = "WAYLAND_DISPLAY" to prevent
+                # starting if WAYLAND_DISPLAY is not available, but compositor will
+                # start the service when ready so this isn't necessary
               } // optionalAttrs (cfg.environmentFile != null) {
                 EnvironmentFile = cfg.environmentFile;
               });
 
               Install = {
-                WantedBy = [ "graphical-session.target" ];
+                # Don't auto-start - compositor will start service via uwsm-app
+                # WantedBy = [ "graphical-session.target" ];
               };
             };
 
