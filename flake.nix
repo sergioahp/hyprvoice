@@ -261,8 +261,14 @@
               });
 
               Install = {
-                # Only auto-start on login if autoStart is enabled
-                # Install section must always be present for home-manager to properly restart the service during activation
+                # IMPORTANT: This Install section must always be present (even when empty) for Home Manager
+                # to properly manage the service lifecycle. With startServices = "sd-switch", Home Manager
+                # will restart services when their configuration changes during activation. Without an Install
+                # section, the service would stop during activation but never restart, leaving it permanently
+                # stopped until next login.
+                #
+                # WantedBy is only added when autoStart = true. When false, the service shows as "linked"
+                # rather than "enabled" and must be started manually or via compositor (e.g., Hyprland exec-once).
               } // optionalAttrs cfg.autoStart {
                 WantedBy = [ "graphical-session.target" ];
               };
