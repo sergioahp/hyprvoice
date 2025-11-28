@@ -196,6 +196,16 @@
               description = "The hyprvoice package to use";
             };
 
+            autoStart = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Automatically start hyprvoice service on login (graphical-session.target).
+                If false, you should start the service manually or via compositor exec-once.
+                Example: exec-once = uwsm-app -- systemctl --user start hyprvoice.service
+              '';
+            };
+
             environmentFile = mkOption {
               type = types.nullOr types.path;
               default = null;
@@ -250,9 +260,8 @@
                 EnvironmentFile = cfg.environmentFile;
               });
 
-              Install = {
-                # Don't auto-start - compositor will start service via uwsm-app
-                # WantedBy = [ "graphical-session.target" ];
+              Install = mkIf cfg.autoStart {
+                WantedBy = [ "graphical-session.target" ];
               };
             };
 
