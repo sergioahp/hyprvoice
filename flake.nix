@@ -260,7 +260,10 @@
                 EnvironmentFile = cfg.environmentFile;
               });
 
-              Install = mkIf cfg.autoStart {
+              Install = {
+                # Only auto-start on login if autoStart is enabled
+                # Install section must always be present for home-manager to properly restart the service during activation
+              } // optionalAttrs cfg.autoStart {
                 WantedBy = [ "graphical-session.target" ];
               };
             };
