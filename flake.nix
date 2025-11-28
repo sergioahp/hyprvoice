@@ -239,14 +239,13 @@
 
               Service = ({
                 Type = "simple";
+                # Wait for Wayland display to be available before starting
+                ExecStartPre = "/bin/sh -c 'until [ -n \"$WAYLAND_DISPLAY\" ]; do sleep 0.1; done'";
                 ExecStart = "${cfg.package}/bin/hyprvoice serve";
                 Restart = "on-failure";
                 RestartSec = "5s";
                 # Pass Wayland session environment for clipboard/wtype tools
                 PassEnvironment = "WAYLAND_DISPLAY DISPLAY";
-                # Note: Could add ConditionEnvironment = "WAYLAND_DISPLAY" to prevent
-                # starting if WAYLAND_DISPLAY is not available, but compositor will
-                # start the service when ready so this isn't necessary
               } // optionalAttrs (cfg.environmentFile != null) {
                 EnvironmentFile = cfg.environmentFile;
               });
