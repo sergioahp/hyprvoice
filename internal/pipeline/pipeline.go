@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -330,6 +331,18 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 		}
 		p.setStatus(Injecting)
 	}
+
+	// Sanitize: replace line-terminating characters with spaces to prevent
+	// unintended Enter keypresses during injection, which can submit forms mid-sentence.
+	// Covers ASCII controls (\r, \n, \v, \f), Unicode NEL (U+0085),
+	// LINE SEPARATOR (U+2028), and PARAGRAPH SEPARATOR (U+2029).
+	textToInject = strings.Map(func(r rune) rune {
+		switch r {
+		case '\r', '\n', '\v', '\f', '\u0085', '\u2028', '\u2029':
+			return ' '
+		}
+		return r
+	}, textToInject)
 
 	injector := p.injectorFactory(p.config.ToInjectionConfig())
 
