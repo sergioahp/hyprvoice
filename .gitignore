@@ -32,4 +32,5 @@ go.work.sum
 hyprvoice
 hyprvoice-*
 tmp/*
-CLAUDE.md
+# CLAUDE.md is tracked in this fork for automated conflict resolution
+!CLAUDE.md
