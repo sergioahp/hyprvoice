@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Merge main into feature/custom
     needs: sync_main
-    if: needs.sync_main.outputs.has_new_commits == 'true'
+    if: needs.sync_main.outputs.has_new_commits == 'true' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout feature branch
