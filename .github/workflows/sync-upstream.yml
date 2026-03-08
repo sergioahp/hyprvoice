@@ -60,21 +60,46 @@ jobs:
       - name: Fetch updated main
         run: git fetch origin main
 
-      - name: Merge main into feature branch
+      - name: Attempt merge
         id: merge
         run: "git merge origin/main --no-edit -m 'chore: merge upstream sync into feature/custom'"
         continue-on-error: true
 
-      - name: Push if merge succeeded
-        if: steps.merge.outcome == 'success'
+      - name: Install Claude Code (conflict resolution)
+        if: steps.merge.outcome == 'failure'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: AI conflict resolution
+        if: steps.merge.outcome == 'failure'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --print "There are merge conflicts from merging upstream (LeonardoTrapani/hyprvoice) into our feature branch. Read CLAUDE.md for full context on what this fork adds. Resolve all conflicts preserving both upstream changes and our custom additions, stage the resolved files, and complete the merge commit."
+
+      - name: Run build & tests
+        id: tests
+        run: |
+          go build ./...
+          go test ./...
+        continue-on-error: true
+
+      - name: AI test fix
+        if: steps.tests.outcome == 'failure'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --print "Tests or build are failing after merging upstream. Read CLAUDE.md for context on what this fork adds. Analyze the failure output, fix the code so both upstream changes and our custom feature work, and commit the fix."
+
+      - name: Push if successful
+        if: steps.merge.outcome == 'success' || steps.tests.outcome == 'success'
         run: git push origin feature/custom
 
-      - name: Open issue if merge has conflicts
-        if: steps.merge.outcome == 'failure'
+      - name: Open issue if unresolvable
+        if: steps.merge.outcome == 'failure' && steps.tests.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
-            const title = 'Upstream sync: merge conflict on feature/custom needs manual resolution';
+            const title = 'Upstream sync: automated resolution failed, manual intervention needed';
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -90,10 +115,11 @@ jobs:
               repo: context.repo.repo,
               title,
               body: [
-                '## Upstream sync: merge conflict',
+                '## Upstream sync: automated resolution failed',
                 '',
-                '`main` was synced with upstream successfully, but merging it into',
-                '`feature/custom` produced conflicts.',
+                'Claude Code attempted to resolve merge conflicts or fix failing tests',
+                'after syncing upstream into `feature/custom`, but could not produce a',
+                'passing build.',
                 '',
                 '**Run locally to resolve:**',
                 '```sh',
@@ -101,6 +127,7 @@ jobs:
                 'git checkout feature/custom',
                 'git merge origin/main',
                 '# resolve conflicts, then:',
+                'go build ./... && go test ./...',
                 'git push origin feature/custom',
                 '```',
                 '',
