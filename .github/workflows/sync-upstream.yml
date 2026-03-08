@@ -74,7 +74,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude --print "There are merge conflicts from merging upstream (LeonardoTrapani/hyprvoice) into our feature branch. Read CLAUDE.md for full context on what this fork adds. Resolve all conflicts preserving both upstream changes and our custom additions, stage the resolved files, and complete the merge commit."
+          claude --dangerously-skip-permissions --print "There are merge conflicts from merging upstream (LeonardoTrapani/hyprvoice) into our feature branch. Read CLAUDE.md for full context on what this fork adds. Resolve all conflicts preserving both upstream changes and our custom additions, stage the resolved files, and complete the merge commit."
 
       - name: Run build & tests
         id: tests
@@ -88,7 +88,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude --print "Tests or build are failing after merging upstream. Read CLAUDE.md for context on what this fork adds. Analyze the failure output, fix the code so both upstream changes and our custom feature work, and commit the fix."
+          claude --dangerously-skip-permissions --print "Tests or build are failing after merging upstream. Read CLAUDE.md for context on what this fork adds. Analyze the failure output, fix the code so both upstream changes and our custom feature work, and commit the fix."
 
       - name: Push if successful
         if: steps.merge.outcome == 'success' || steps.tests.outcome == 'success'
