@@ -1,0 +1,110 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync_main:
+    runs-on: ubuntu-latest
+    name: Sync main with upstream
+    outputs:
+      has_new_commits: ${{ steps.sync.outputs.has_new_commits }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync upstream changes into main
+        id: sync
+        uses: sergioahp/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          target_sync_branch: main
+          target_repo_token: ${{ secrets.SYNC_TOKEN }}
+          upstream_sync_repo: LeonardoTrapani/hyprvoice
+          upstream_sync_branch: main
+
+      - name: Sync upstream tags
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          git remote set-url upstream https://github.com/LeonardoTrapani/hyprvoice.git 2>/dev/null || git remote add upstream https://github.com/LeonardoTrapani/hyprvoice.git
+          git remote set-url origin "https://${GITHUB_ACTOR}:${SYNC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch upstream --tags
+          git push origin --tags
+
+  merge_into_feature:
+    runs-on: ubuntu-latest
+    name: Merge main into feature/custom
+    needs: sync_main
+    if: needs.sync_main.outputs.has_new_commits == 'true'
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/custom
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch updated main
+        run: git fetch origin main
+
+      - name: Merge main into feature branch
+        id: merge
+        run: "git merge origin/main --no-edit -m 'chore: merge upstream sync into feature/custom'"
+        continue-on-error: true
+
+      - name: Push if merge succeeded
+        if: steps.merge.outcome == 'success'
+        run: git push origin feature/custom
+
+      - name: Open issue if merge has conflicts
+        if: steps.merge.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Upstream sync: merge conflict on feature/custom needs manual resolution';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-sync',
+            });
+            if (issues.some(i => i.title === title)) {
+              console.log('Issue already open, skipping.');
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: [
+                '## Upstream sync: merge conflict',
+                '',
+                '`main` was synced with upstream successfully, but merging it into',
+                '`feature/custom` produced conflicts.',
+                '',
+                '**Run locally to resolve:**',
+                '```sh',
+                'git fetch origin',
+                'git checkout feature/custom',
+                'git merge origin/main',
+                '# resolve conflicts, then:',
+                'git push origin feature/custom',
+                '```',
+                '',
+                `Triggered by workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n'),
+              labels: ['upstream-sync'],
+            });
