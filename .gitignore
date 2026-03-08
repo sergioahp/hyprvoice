@@ -29,8 +29,9 @@ go.work.sum
 # .vscode/
 
 # Output binaries
-hyprvoice
-hyprvoice-*
+/hyprvoice
+/hyprvoice-*
+packaging/hyprvoice-v*
 tmp/*
 # CLAUDE.md is tracked in this fork for automated conflict resolution
 !CLAUDE.md

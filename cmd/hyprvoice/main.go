@@ -1,17 +1,22 @@
 package main
 
 import (
-	"bufio"
+	"context"
+	"errors"
 	"fmt"
-	"os"
+	"io"
+	"log"
 	"os/exec"
-	"strconv"
+	"path/filepath"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/daemon"
+	"github.com/leonardotrapani/hyprvoice/internal/models/whisper"
+	"github.com/leonardotrapani/hyprvoice/internal/provider"
+	"github.com/leonardotrapani/hyprvoice/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +37,9 @@ func init() {
 		statusCmd(),
 		versionCmd(),
 		stopCmd(),
+		onboardingCmd(),
 		configureCmd(),
+		modelCmd(),
 	)
 }
 
@@ -126,319 +133,366 @@ func cancelCmd() *cobra.Command {
 }
 
 func configureCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "configure",
 		Short: "Interactive configuration setup",
 		Long: `Interactive configuration wizard for hyprvoice.
 This will guide you through setting up:
-- Transcription provider (OpenAI or Groq)
-- API keys and model selection
-- Audio and text injection preferences
-- Notification settings`,
+- Provider API keys (OpenAI, Groq, Mistral, ElevenLabs)
+- Transcription settings
+- LLM post-processing
+	- Text injection and notification preferences
+
+For first-time setup, run 'hyprvoice onboarding'.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInteractiveConfig()
+			return runConfigure(false)
+		},
+	}
+
+	return cmd
+}
+
+func onboardingCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "onboarding",
+		Short: "Guided first-time setup",
+		Long: `Guided onboarding wizard for hyprvoice.
+This will walk you through the full setup flow (excluding advanced options).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConfigure(true)
 		},
 	}
 }
 
-func runInteractiveConfig() error {
-	fmt.Println("🎤 Hyprvoice Configuration Wizard")
-	fmt.Println("==================================")
-	fmt.Println()
-
-	// Load existing config or create default
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	scanner := bufio.NewScanner(os.Stdin)
-
-	// Configure transcription
-	fmt.Println("📝 Transcription Configuration")
-	fmt.Println("------------------------------")
-
-	// Provider selection
-	fmt.Println("Select transcription provider:")
-	fmt.Println("  1. openai            - OpenAI Whisper API (cloud-based)")
-	fmt.Println("  2. groq-transcription - Groq Whisper API (fast transcription)")
-	fmt.Println("  3. groq-translation   - Groq Whisper API (translate to English)")
-	fmt.Printf("Provider [1-3] (current: %s): ", cfg.Transcription.Provider)
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		switch input {
-		case "1":
-			cfg.Transcription.Provider = "openai"
-		case "2":
-			cfg.Transcription.Provider = "groq-transcription"
-		case "3":
-			cfg.Transcription.Provider = "groq-translation"
-		case "openai", "groq-transcription", "groq-translation":
-			cfg.Transcription.Provider = input
-		}
-	}
-
-	// Model selection based on provider
-	if cfg.Transcription.Provider == "openai" {
-		fmt.Println("\nOpenAI Model:")
-		fmt.Printf("Model (current: %s): ", cfg.Transcription.Model)
-		if scanner.Scan() {
-			input := strings.TrimSpace(scanner.Text())
-			if input != "" {
-				cfg.Transcription.Model = input
-			} else if cfg.Transcription.Model == "" {
-				cfg.Transcription.Model = "whisper-1"
-			}
-		}
-	} else if cfg.Transcription.Provider == "groq-transcription" {
-		fmt.Println("\nGroq Transcription Model:")
-		fmt.Println("  1. whisper-large-v3       - Standard model")
-		fmt.Println("  2. whisper-large-v3-turbo - Faster model")
-		fmt.Printf("Model [1-2] (current: %s): ", cfg.Transcription.Model)
-		if scanner.Scan() {
-			input := strings.TrimSpace(scanner.Text())
-			switch input {
-			case "1":
-				cfg.Transcription.Model = "whisper-large-v3"
-			case "2":
-				cfg.Transcription.Model = "whisper-large-v3-turbo"
-			case "whisper-large-v3", "whisper-large-v3-turbo":
-				cfg.Transcription.Model = input
-			case "":
-				if cfg.Transcription.Model == "" {
-					cfg.Transcription.Model = "whisper-large-v3-turbo"
-				}
-			}
-		}
-	} else if cfg.Transcription.Provider == "groq-translation" {
-		fmt.Println("\nGroq Translation Model:")
-		fmt.Println("  Note: Translation only supports whisper-large-v3 (turbo not available)")
-		fmt.Printf("Model (current: %s, press Enter for whisper-large-v3): ", cfg.Transcription.Model)
-		if scanner.Scan() {
-			input := strings.TrimSpace(scanner.Text())
-			if input == "" || input == "whisper-large-v3" || input == "1" {
-				cfg.Transcription.Model = "whisper-large-v3"
+func runConfigure(onboarding bool) error {
+	var cfg *config.Config
+	var err error
+	if onboarding {
+		cfg, err = loadConfigQuiet()
+		if err != nil {
+			if errors.Is(err, config.ErrConfigNotFound) {
+				cfg = config.DefaultConfig()
 			} else {
-				fmt.Println("  Warning: Only whisper-large-v3 is supported for translation. Using whisper-large-v3.")
-				cfg.Transcription.Model = "whisper-large-v3"
+				return fmt.Errorf("failed to load config: %w", err)
 			}
 		}
-	}
-
-	// API Key (provider-aware)
-	var envVarName string
-	if cfg.Transcription.Provider == "openai" {
-		envVarName = "OPENAI_API_KEY"
 	} else {
-		envVarName = "GROQ_API_KEY"
-	}
-	fmt.Printf("\nAPI Key (current: %s, leave empty to use %s env var): ", maskAPIKey(cfg.Transcription.APIKey), envVarName)
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		if input != "" {
-			cfg.Transcription.APIKey = input
+		cfg, err = loadConfigQuiet()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
 		}
 	}
 
-	// Language
-	if cfg.Transcription.Provider == "groq-translation" {
-		fmt.Printf("\nSource language hint (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
-		fmt.Println("\n  Note: Translation always outputs English. Language hints at source audio language.")
-	} else {
-		fmt.Printf("\nLanguage (empty for auto-detect, current: %s): ", cfg.Transcription.Language)
-	}
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		cfg.Transcription.Language = input
+	// Run TUI wizard
+	result, err := tui.Run(cfg, onboarding)
+	if err != nil {
+		return fmt.Errorf("configuration wizard error: %w", err)
 	}
 
-	fmt.Println()
-
-	// Configure injection
-	fmt.Println("⌨️  Text Injection Configuration")
-	fmt.Println("--------------------------------")
-	fmt.Printf("Injection mode [clipboard/type/fallback] (current: %s): ", cfg.Injection.Mode)
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		if input != "" && (input == "clipboard" || input == "type" || input == "fallback") {
-			cfg.Injection.Mode = input
-		}
+	if result.Cancelled {
+		fmt.Println("Configuration cancelled.")
+		return nil
 	}
-
-	fmt.Printf("Restore clipboard after injection [y/n] (current: %v): ", cfg.Injection.RestoreClipboard)
-	if scanner.Scan() {
-		switch strings.TrimSpace(strings.ToLower(scanner.Text())) {
-		case "y", "yes":
-			cfg.Injection.RestoreClipboard = true
-		case "n", "no":
-			cfg.Injection.RestoreClipboard = false
-		}
-	}
-
-	fmt.Println()
-
-	// Configure notifications
-	fmt.Println("🔔 Notification Configuration")
-	fmt.Println("-----------------------------")
-	fmt.Printf("Enable notifications [y/n] (current: %v): ", cfg.Notifications.Enabled)
-	if scanner.Scan() {
-		switch strings.TrimSpace(strings.ToLower(scanner.Text())) {
-		case "y", "yes":
-			cfg.Notifications.Enabled = true
-		case "n", "no":
-			cfg.Notifications.Enabled = false
-		}
-	}
-
-	fmt.Println()
-
-	// Configure recording timeout
-	fmt.Println("⏱️  Recording Configuration")
-	fmt.Println("---------------------------")
-	fmt.Printf("Recording timeout in minutes (current: %.0f): ", cfg.Recording.Timeout.Minutes())
-	if scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		if input != "" {
-			if minutes, err := strconv.Atoi(input); err == nil && minutes > 0 {
-				cfg.Recording.Timeout = time.Duration(minutes) * time.Minute
-			}
-		}
-	}
-
-	fmt.Println()
 
 	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		fmt.Printf("❌ Configuration validation failed: %v\n", err)
-		fmt.Println("Please check your inputs and try again.")
+	if err := result.Config.Validate(); err != nil {
+		fmt.Printf("Configuration validation failed: %v\n", err)
 		return err
 	}
 
 	// Save configuration
-	fmt.Println("💾 Saving configuration...")
-	if err := saveConfig(cfg); err != nil {
+	if err := config.Save(result.Config); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	fmt.Println("✅ Configuration saved successfully!")
+	fmt.Println()
+	fmt.Println("Configuration saved successfully!")
 	fmt.Println()
 
+	// Show next steps
+	showNextSteps(result.Config, onboarding)
+
+	return nil
+}
+
+func loadConfigQuiet() (*config.Config, error) {
+	prev := log.Writer()
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(prev)
+	return config.Load()
+}
+
+func showNextSteps(cfg *config.Config, onboarding bool) {
 	// Check if service is running
 	serviceRunning := false
 	if _, err := exec.Command("systemctl", "--user", "is-active", "--quiet", "hyprvoice.service").CombinedOutput(); err == nil {
 		serviceRunning = true
 	}
 
-	// Show next steps
-	fmt.Println("🚀 Next Steps:")
-	if !serviceRunning {
-		fmt.Println("1. Start the service: systemctl --user start hyprvoice.service")
-		fmt.Println("2. Test voice input: hyprvoice toggle")
-	} else {
-		fmt.Println("1. Restart the service to apply changes: systemctl --user restart hyprvoice.service")
-		fmt.Println("2. Test voice input: hyprvoice toggle")
+	// Check if ydotool is in backends
+	hasYdotool := false
+	for _, b := range cfg.Injection.Backends {
+		if b == "ydotool" {
+			hasYdotool = true
+			break
+		}
 	}
+
+	fmt.Println("Next Steps:")
+	step := 1
+	if hasYdotool {
+		fmt.Printf("%d. Ensure ydotoold is running\n", step)
+		step++
+	}
+	if serviceRunning {
+		fmt.Printf("%d. Restart the service to apply changes: systemctl --user restart hyprvoice.service\n", step)
+		step++
+	} else if onboarding {
+		fmt.Printf("%d. Enable the service: systemctl --user enable --now hyprvoice.service\n", step)
+		step++
+	} else {
+		fmt.Printf("%d. Start the service if it is not running\n", step)
+		step++
+	}
+	fmt.Printf("%d. Test voice input: hyprvoice toggle\n", step)
 	fmt.Println()
 
 	configPath, _ := config.GetConfigPath()
-	fmt.Printf("📁 Config file location: %s\n", configPath)
+	if onboarding {
+		configDir := filepath.Dir(configPath)
+		fmt.Printf("run hyprvoice configure to configure more, or check %s\n", configDir)
+		return
+	}
+	fmt.Printf("Config file location: %s\n", configPath)
+}
 
+func modelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "model",
+		Short: "Manage transcription models",
+	}
+
+	cmd.AddCommand(modelListCmd())
+	cmd.AddCommand(modelDownloadCmd())
+	cmd.AddCommand(modelRemoveCmd())
+
+	return cmd
+}
+
+func modelListCmd() *cobra.Command {
+	var providerFilter string
+	var typeFilter string
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available transcription and LLM models",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelList(providerFilter, typeFilter)
+		},
+	}
+
+	cmd.Flags().StringVar(&providerFilter, "provider", "", "filter by provider name")
+	cmd.Flags().StringVar(&typeFilter, "type", "", "filter by type: transcription, llm")
+
+	return cmd
+}
+
+func runModelList(providerFilter, typeFilter string) error {
+	// parse type filter
+	var filterType *provider.ModelType
+	if typeFilter != "" {
+		switch strings.ToLower(typeFilter) {
+		case "transcription":
+			t := provider.Transcription
+			filterType = &t
+		case "llm":
+			t := provider.LLM
+			filterType = &t
+		default:
+			return fmt.Errorf("invalid type: %s (use 'transcription' or 'llm')", typeFilter)
+		}
+	}
+
+	// get providers to iterate
+	providerNames := provider.ListProviders()
+	sort.Strings(providerNames)
+
+	// filter by provider if specified
+	if providerFilter != "" {
+		found := false
+		for _, name := range providerNames {
+			if name == providerFilter {
+				providerNames = []string{name}
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("unknown provider: %s", providerFilter)
+		}
+	}
+
+	for _, providerName := range providerNames {
+		p := provider.GetProvider(providerName)
+		if p == nil {
+			continue
+		}
+
+		models := p.Models()
+		if filterType != nil {
+			models = provider.ModelsOfType(p, *filterType)
+		}
+
+		if len(models) == 0 {
+			continue
+		}
+
+		// print provider header
+		fmt.Printf("\n%s:\n", providerName)
+
+		for _, m := range models {
+			printModelLine(m)
+		}
+	}
+
+	fmt.Println()
 	return nil
 }
 
-func maskAPIKey(key string) string {
-	if key == "" {
-		return "<not set>"
+func printModelLine(m provider.Model) {
+	// build prefix: checkmark for installed local models
+	prefix := "  "
+	if m.Local {
+		if whisper.IsInstalled(m.ID) {
+			prefix = "  [x]"
+		} else {
+			prefix = "  [ ]"
+		}
 	}
-	if len(key) <= 8 {
-		return "****"
+
+	// build suffix parts
+	var parts []string
+
+	// type indicator
+	if m.Type == provider.LLM {
+		parts = append(parts, "llm")
 	}
-	return key[:4] + "****" + key[len(key)-4:]
+
+	// mode capabilities indicator
+	if m.SupportsBothModes() {
+		parts = append(parts, "batch+streaming")
+	} else if m.SupportsStreaming {
+		parts = append(parts, "streaming")
+	}
+
+	// size for local models
+	if m.LocalInfo != nil && m.LocalInfo.Size != "" {
+		parts = append(parts, m.LocalInfo.Size)
+	}
+
+	// build line
+	line := fmt.Sprintf("%s %s", prefix, m.ID)
+	if m.Description != "" {
+		line += fmt.Sprintf(" - %s", m.Description)
+	}
+	if len(parts) > 0 {
+		line += fmt.Sprintf(" [%s]", strings.Join(parts, ", "))
+	}
+
+	fmt.Println(line)
 }
 
-func saveConfig(cfg *config.Config) error {
-	configPath, err := config.GetConfigPath()
+func modelDownloadCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "download <model-name>",
+		Short: "Download a local model (e.g. whisper models)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelDownload(cmd.Context(), args[0])
+		},
+	}
+}
+
+func runModelDownload(ctx context.Context, modelName string) error {
+	// find the model across all providers
+	model, _, err := provider.FindModelByID(modelName)
 	if err != nil {
-		return err
+		return fmt.Errorf("unknown model: %s", modelName)
 	}
 
-	file, err := os.Create(configPath)
+	// check if it needs download (local model)
+	if !model.NeedsDownload() {
+		fmt.Printf("model '%s' is a cloud model and does not require download\n", modelName)
+		return nil
+	}
+
+	// check if already installed
+	if whisper.IsInstalled(modelName) {
+		path := whisper.GetModelPath(modelName)
+		fmt.Printf("model '%s' is already installed at %s\n", modelName, path)
+		return nil
+	}
+
+	// download with progress
+	fmt.Printf("downloading %s", modelName)
+	if model.LocalInfo != nil && model.LocalInfo.Size != "" {
+		fmt.Printf(" (%s)", model.LocalInfo.Size)
+	}
+	fmt.Println("...")
+
+	var lastPercent int
+	err = whisper.Download(ctx, modelName, func(downloaded, total int64) {
+		if total > 0 {
+			percent := int(downloaded * 100 / total)
+			if percent >= lastPercent+10 {
+				fmt.Printf("%d%% ", percent)
+				lastPercent = percent
+			}
+		}
+	})
 	if err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
-	}
-	defer file.Close()
-
-	configContent := fmt.Sprintf(`# Hyprvoice Configuration
-# This file is automatically generated with defaults.
-# Edit values as needed - changes are applied immediately without daemon restart.
-
-# Audio Recording Configuration
-[recording]
-  sample_rate = %d          # Audio sample rate in Hz (16000 recommended for speech)
-  channels = %d                 # Number of audio channels (1 = mono, 2 = stereo)
-  format = "%s"               # Audio format (s16 = 16-bit signed integers)
-  buffer_size = %d           # Internal buffer size in bytes (larger = less CPU, more latency)
-  device = "%s"                  # PipeWire audio device (empty = use default microphone)
-  channel_buffer_size = %d     # Audio frame buffer size (frames to buffer)
-  timeout = "%s"               # Maximum recording duration (e.g., "30s", "2m", "5m")
-
-# Speech Transcription Configuration
-[transcription]
-  provider = "%s"          # Transcription service: "openai", "groq-transcription", or "groq-translation"
-  api_key = "%s"                 # API key (or set OPENAI_API_KEY/GROQ_API_KEY environment variable)
-  language = "%s"                # Language code (empty for auto-detect, "en", "it", "es", "fr", etc.)
-  model = "%s"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3" or "whisper-large-v3-turbo"
-
-# Text Injection Configuration
-[injection]
-  mode = "%s"            # Injection method ("clipboard", "type", "fallback")
-  restore_clipboard = %v     # Restore original clipboard after injection
-  wtype_timeout = "%s"         # Timeout for direct typing via wtype
-  clipboard_timeout = "%s"     # Timeout for clipboard operations
-
-# Desktop Notification Configuration
-[notifications]
-  enabled = %v               # Enable desktop notifications
-  type = "%s"             # Notification type ("desktop", "log", "none")
-
-# Mode explanations:
-# - "clipboard": Copy text to clipboard only
-# - "type": Direct typing via wtype only
-# - "fallback": Try typing first, fallback to clipboard if it fails
-#
-# Provider explanations:
-# - "openai": OpenAI Whisper API (cloud-based, requires OPENAI_API_KEY)
-# - "groq-transcription": Groq Whisper API for transcription (fast, requires GROQ_API_KEY)
-#     Models: whisper-large-v3 or whisper-large-v3-turbo
-# - "groq-translation": Groq Whisper API for translation to English (always outputs English text)
-#     Models: whisper-large-v3 only (turbo not supported for translation)
-#
-# Language codes: Use empty string ("") for automatic detection, or specific codes like:
-# "en" (English), "it" (Italian), "es" (Spanish), "fr" (French), "de" (German), etc.
-# For groq-translation, the language field hints at the source audio language for better accuracy.
-`,
-		cfg.Recording.SampleRate,
-		cfg.Recording.Channels,
-		cfg.Recording.Format,
-		cfg.Recording.BufferSize,
-		cfg.Recording.Device,
-		cfg.Recording.ChannelBufferSize,
-		cfg.Recording.Timeout,
-		cfg.Transcription.Provider,
-		cfg.Transcription.APIKey,
-		cfg.Transcription.Language,
-		cfg.Transcription.Model,
-		cfg.Injection.Mode,
-		cfg.Injection.RestoreClipboard,
-		cfg.Injection.WtypeTimeout,
-		cfg.Injection.ClipboardTimeout,
-		cfg.Notifications.Enabled,
-		cfg.Notifications.Type,
-	)
-
-	if _, err := file.WriteString(configContent); err != nil {
-		return fmt.Errorf("failed to write config content: %w", err)
+		return fmt.Errorf("download failed: %w", err)
 	}
 
+	path := whisper.GetModelPath(modelName)
+	fmt.Printf("\ndownload complete: %s\n", path)
+	return nil
+}
+
+func modelRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <model-name>",
+		Short: "Remove a downloaded local model",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runModelRemove(args[0])
+		},
+	}
+}
+
+func runModelRemove(modelName string) error {
+	// find the model across all providers
+	model, _, err := provider.FindModelByID(modelName)
+	if err != nil {
+		return fmt.Errorf("unknown model: %s", modelName)
+	}
+
+	// check if it's a cloud model (nothing to remove)
+	if !model.NeedsDownload() {
+		fmt.Printf("model '%s' is a cloud model, nothing to remove\n", modelName)
+		return nil
+	}
+
+	// check if installed
+	if !whisper.IsInstalled(modelName) {
+		return fmt.Errorf("model '%s' is not installed", modelName)
+	}
+
+	// remove the model
+	if err := whisper.Remove(modelName); err != nil {
+		return fmt.Errorf("failed to remove model: %w", err)
+	}
+
+	fmt.Printf("model '%s' removed successfully\n", modelName)
 	return nil
 }

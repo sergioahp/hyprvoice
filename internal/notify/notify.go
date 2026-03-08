@@ -2,134 +2,115 @@ package notify
 
 import (
 	"fmt"
-	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"log"
 	"os/exec"
 )
 
 type Notifier interface {
-	Error(msg string)
-	Notify(title, message string)
-	RecordingStarted()
-	Transcribing()
-	RecordingComplete()
-	RecordingCancelled()
+	Send(mt MessageType)
+	Error(msg string) // for dynamic errors (e.g., pipeline errors)
 }
 
-// Dunst replace IDs for persistent notifications
-const (
-	RecordingNotificationID = 9999 // Persistent notification during recording/transcribing
-)
+// RecordingNotificationID is the Dunst replace ID for persistent recording notifications
+const RecordingNotificationID = 9999
 
-type Desktop struct{}
-
-func (d Desktop) RecordingStarted() {
-	d.PersistentNotify("Hyprvoice", "🎤 Recording...", RecordingNotificationID)
-}
-
-func (d Desktop) Transcribing() {
-	d.PersistentNotify("Hyprvoice", "⏳ Transcribing...", RecordingNotificationID)
-}
-
-func (d Desktop) RecordingComplete() {
-	// Replace the persistent notification with a timed one (5 seconds)
-	cmd := exec.Command("notify-send",
-		"-a", "Hyprvoice",
-		"-r", fmt.Sprintf("%d", RecordingNotificationID), // Replace ID to update existing notification
-		"-t", "5000",                                       // 5 second timeout
-		"Hyprvoice",
-		"✅ Complete",
-	)
-	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send completion notification: %v", err)
+// NewNotifier creates a notifier based on type with resolved messages
+func NewNotifier(notifType string, messages map[MessageType]Message) Notifier {
+	switch notifType {
+	case "desktop":
+		return NewDesktop(messages)
+	case "log":
+		return NewLog(messages)
+	default:
+		return &Nop{}
 	}
 }
 
-func (d Desktop) RecordingCancelled() {
-	cmd := exec.Command("notify-send",
-		"-a", "Hyprvoice",
-		"-r", fmt.Sprintf("%d", RecordingNotificationID),
-		"-t", "5000",
-		"Hyprvoice",
-		"❌ Cancelled",
-	)
-	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send cancellation notification: %v", err)
+type Desktop struct {
+	messages map[MessageType]Message
+}
+
+func NewDesktop(messages map[MessageType]Message) *Desktop {
+	return &Desktop{messages: messages}
+}
+
+func (d *Desktop) Send(mt MessageType) {
+	msg, ok := d.messages[mt]
+	if !ok {
+		return
+	}
+	if msg.IsError {
+		d.Error(msg.Body)
+		return
+	}
+	// Use persistent notifications (Dunst replace ID 9999) for recording state transitions
+	// so all state changes replace the same notification rather than spawning new ones.
+	switch mt {
+	case MsgRecordingStarted:
+		d.persistentNotify(msg.Title, "🎤 Recording...", 0)
+	case MsgTranscribing:
+		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0)
+	case MsgOperationCancelled, MsgRecordingAborted, MsgInjectionAborted:
+		d.persistentNotify(msg.Title, "❌ Cancelled", 5000)
+	default:
+		d.notify(msg.Title, msg.Body)
 	}
 }
 
-func (Desktop) Error(msg string) {
+func (d *Desktop) Error(msg string) {
 	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", "Hyprvoice Error", msg)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send error notification: %v", err)
 	}
 }
 
-func (Desktop) Notify(title, message string) {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", title, message)
+func (d *Desktop) notify(title, body string) {
+	cmd := exec.Command("notify-send", "-a", "Hyprvoice", title, body)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}
 }
 
-// PersistentNotify sends a notification with a replace ID for Dunst
-// This allows the notification to persist and be replaced rather than spawning new ones
-func (Desktop) PersistentNotify(title, message string, replaceID int) {
+// persistentNotify sends a notification replacing the recording notification via Dunst replace ID.
+// timeoutMs=0 means persistent (no auto-dismiss); >0 auto-dismisses after that many milliseconds.
+func (d *Desktop) persistentNotify(title, body string, timeoutMs int) {
 	cmd := exec.Command("notify-send",
 		"-a", "Hyprvoice",
-		"-r", fmt.Sprintf("%d", replaceID), // Replace ID for Dunst
-		"-t", "0",                           // Timeout 0 = persistent until replaced
+		"-r", fmt.Sprintf("%d", RecordingNotificationID),
+		"-t", fmt.Sprintf("%d", timeoutMs),
 		title,
-		message,
+		body,
 	)
 	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to send persistent notification: %v", err)
+		log.Printf("Failed to send notification: %v", err)
 	}
 }
 
-type Log struct{}
-
-func (l Log) Error(msg string) {
-	l.Notify("Hyprvoice Error", msg)
+type Log struct {
+	messages map[MessageType]Message
 }
 
-func (Log) Notify(title, message string) {
-	log.Printf("%s: %s", title, message)
+func NewLog(messages map[MessageType]Message) *Log {
+	return &Log{messages: messages}
 }
 
-func (l Log) RecordingStarted() {
-	l.Notify("Hyprvoice", "🎤 Recording...")
+func (l *Log) Send(mt MessageType) {
+	msg, ok := l.messages[mt]
+	if !ok {
+		return
+	}
+	if msg.IsError {
+		l.Error(msg.Body)
+		return
+	}
+	log.Printf("%s: %s", msg.Title, msg.Body)
 }
 
-func (l Log) Transcribing() {
-	l.Notify("Hyprvoice", "⏳ Transcribing...")
-}
-
-func (l Log) RecordingComplete() {
-	l.Notify("Hyprvoice", "✅ Complete")
-}
-
-func (l Log) RecordingCancelled() {
-	l.Notify("Hyprvoice", "❌ Cancelled")
+func (l *Log) Error(msg string) {
+	log.Printf("Hyprvoice Error: %s", msg)
 }
 
 type Nop struct{}
 
-func (Nop) Error(msg string)             {}
-func (Nop) Notify(title, message string) {}
-func (Nop) RecordingStarted()            {}
-func (Nop) Transcribing()                {}
-func (Nop) RecordingComplete()           {}
-func (Nop) RecordingCancelled()          {}
-
-func GetNotifierBasedOnConfig(c *config.Config) Notifier {
-	switch c.Notifications.Type {
-	case "desktop":
-		return Desktop{}
-	case "log":
-		return Log{}
-	case "none":
-		return Nop{}
-	}
-	return Nop{}
-}
+func (Nop) Send(mt MessageType) {}
+func (Nop) Error(msg string)    {}

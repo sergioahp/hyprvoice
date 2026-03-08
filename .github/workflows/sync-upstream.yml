@@ -1,0 +1,141 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  sync_main:
+    runs-on: ubuntu-latest
+    name: Sync main with upstream
+    outputs:
+      has_new_commits: ${{ steps.sync.outputs.has_new_commits }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Sync upstream changes into main
+        id: sync
+        uses: sergioahp/Fork-Sync-With-Upstream-action@v3.4.1
+        with:
+          target_sync_branch: main
+          target_repo_token: ${{ secrets.SYNC_TOKEN }}
+          upstream_sync_repo: LeonardoTrapani/hyprvoice
+          upstream_sync_branch: main
+
+      - name: Sync upstream tags
+        env:
+          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          git remote set-url upstream https://github.com/LeonardoTrapani/hyprvoice.git 2>/dev/null || git remote add upstream https://github.com/LeonardoTrapani/hyprvoice.git
+          git remote set-url origin "https://${GITHUB_ACTOR}:${SYNC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch upstream --tags
+          git push origin --tags
+
+  merge_into_feature:
+    runs-on: ubuntu-latest
+    name: Merge main into feature/custom
+    needs: sync_main
+    if: needs.sync_main.outputs.has_new_commits == 'true' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/custom
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch updated main
+        run: git fetch origin main
+
+      - name: Attempt merge
+        id: merge
+        run: "git merge origin/main --no-edit -m 'chore: merge upstream sync into feature/custom'"
+        continue-on-error: true
+
+      - name: Install Claude Code (conflict resolution)
+        if: steps.merge.outcome == 'failure'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: AI conflict resolution
+        id: ai_conflict
+        if: steps.merge.outcome == 'failure'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --dangerously-skip-permissions --print "There are merge conflicts from merging upstream (LeonardoTrapani/hyprvoice) into our feature branch. Read CLAUDE.md for full context on what this fork adds. Resolve all conflicts preserving both upstream changes and our custom additions, stage the resolved files, and complete the merge commit."
+        continue-on-error: true
+
+      - name: Run build & tests
+        id: tests
+        run: |
+          go build ./...
+          go test ./...
+        continue-on-error: true
+
+      - name: AI test fix
+        id: ai_fix
+        if: steps.tests.outcome == 'failure'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --dangerously-skip-permissions --print "Tests or build are failing after merging upstream. Read CLAUDE.md for context on what this fork adds. Analyze the failure output, fix the code so both upstream changes and our custom feature work, and commit the fix."
+        continue-on-error: true
+
+      - name: Push if successful
+        if: steps.merge.outcome == 'success' || steps.ai_conflict.outcome == 'success' || steps.ai_fix.outcome == 'success'
+        run: git push origin feature/custom
+
+      - name: Open issue if unresolvable
+        if: steps.merge.outcome == 'failure' && steps.ai_conflict.outcome != 'success' && steps.ai_fix.outcome != 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Upstream sync: automated resolution failed, manual intervention needed';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-sync',
+            });
+            if (issues.some(i => i.title === title)) {
+              console.log('Issue already open, skipping.');
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body: [
+                '## Upstream sync: automated resolution failed',
+                '',
+                'Claude Code attempted to resolve merge conflicts or fix failing tests',
+                'after syncing upstream into `feature/custom`, but could not produce a',
+                'passing build.',
+                '',
+                '**Run locally to resolve:**',
+                '```sh',
+                'git fetch origin',
+                'git checkout feature/custom',
+                'git merge origin/main',
+                '# resolve conflicts, then:',
+                'go build ./... && go test ./...',
+                'git push origin feature/custom',
+                '```',
+                '',
+                `Triggered by workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n'),
+              labels: ['upstream-sync'],
+            });
