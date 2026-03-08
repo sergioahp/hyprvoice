@@ -13,6 +13,7 @@ type Notifier interface {
 	RecordingStarted()
 	Transcribing()
 	RecordingComplete()
+	RecordingCancelled()
 }
 
 // Dunst replace IDs for persistent notifications
@@ -41,6 +42,19 @@ func (d Desktop) RecordingComplete() {
 	)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send completion notification: %v", err)
+	}
+}
+
+func (d Desktop) RecordingCancelled() {
+	cmd := exec.Command("notify-send",
+		"-a", "Hyprvoice",
+		"-r", fmt.Sprintf("%d", RecordingNotificationID),
+		"-t", "5000",
+		"Hyprvoice",
+		"❌ Cancelled",
+	)
+	if err := cmd.Run(); err != nil {
+		log.Printf("Failed to send cancellation notification: %v", err)
 	}
 }
 
@@ -95,6 +109,10 @@ func (l Log) RecordingComplete() {
 	l.Notify("Hyprvoice", "✅ Complete")
 }
 
+func (l Log) RecordingCancelled() {
+	l.Notify("Hyprvoice", "❌ Cancelled")
+}
+
 type Nop struct{}
 
 func (Nop) Error(msg string)             {}
@@ -102,6 +120,7 @@ func (Nop) Notify(title, message string) {}
 func (Nop) RecordingStarted()            {}
 func (Nop) Transcribing()                {}
 func (Nop) RecordingComplete()           {}
+func (Nop) RecordingCancelled()          {}
 
 func GetNotifierBasedOnConfig(c *config.Config) Notifier {
 	switch c.Notifications.Type {

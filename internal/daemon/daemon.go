@@ -195,7 +195,7 @@ func (d *Daemon) toggle() {
 
 	case pipeline.Recording:
 		d.stopPipeline()
-		go d.notifier.Error("Recording Aborted")
+		go d.notifier.RecordingCancelled()
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
@@ -211,7 +211,7 @@ func (d *Daemon) toggle() {
 
 	case pipeline.Injecting:
 		d.stopPipeline()
-		go d.notifier.Error("Injection Aborted")
+		go d.notifier.RecordingCancelled()
 	}
 }
 
@@ -221,7 +221,7 @@ func (d *Daemon) cancelPipeline() {
 		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
 	default:
 		d.stopPipeline()
-		go d.notifier.Notify("Hyprvoice", "Operation Cancelled")
+		go d.notifier.RecordingCancelled()
 	}
 }
 
