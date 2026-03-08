@@ -21,6 +21,11 @@ Recording is modelled as a stateful operation. All state transitions replace the
 
 The `RecordingCancelled()` / `MsgRecordingCancelled` message type must be preserved and wired into all cancel/abort paths in `internal/daemon/daemon.go`.
 
+## Important invariants
+
+- **Do not change upstream's default config message strings** (e.g. `"Recording Started"`, `"Recording Ended... Transcribing"`). These are tested by upstream's `TestMessagesConfig_Resolve_Defaults`. Our persistent-notification behaviour lives entirely in `Desktop.Send()` in `notify.go` (via `notify-send -r 9999`), not in the config default strings.
+- The emoji (`🎤`, `⏳`, `✅`, `❌`) appear in the `notify-send` body arguments in `Desktop.Send()`, not in config defaults.
+
 ## When merging upstream
 
 - Always preserve the Nix flake and HM module files — upstream does not have these.
