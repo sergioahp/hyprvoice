@@ -102,7 +102,7 @@ Run `hyprvoice configure` anytime for advanced settings.
 bind = SUPER, R, exec, hyprvoice toggle
 ```
 
-Each press toggles between recording and idle. If you experience issues with text injection (stuck keys, wrong characters), try `bindr` instead — it fires on key release, so modifiers like SUPER are fully released before the command runs.
+Each press toggles between recording and idle.
 
 ### Push-to-talk (hold-to-record)
 

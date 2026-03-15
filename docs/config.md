@@ -48,7 +48,7 @@ Hyprvoice is triggered via Hyprland keybindings. The bind type you choose affect
 bind = SUPER, R, exec, hyprvoice toggle
 ```
 
-Each press toggles between recording and idle. If you run into issues with text injection (stuck keys, wrong characters), try `bindr` instead — it fires on key release so modifiers are guaranteed released before the command runs.
+Each press toggles between recording and idle.
 
 ### Push-to-talk (hold-to-record)
 
