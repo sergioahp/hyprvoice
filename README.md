@@ -222,6 +222,8 @@ systemctl --user enable --now hyprvoice.service
 bind = SUPER, R, exec, hyprvoice toggle
 ```
 
+See [Hyprland Keybindings](#hyprland-keybindings) for push-to-talk and other patterns.
+
 4. Test voice input:
 
 ```bash
@@ -229,6 +231,38 @@ hyprvoice toggle
 ```
 
 Run `hyprvoice configure` anytime for advanced settings.
+
+## Hyprland Keybindings
+
+### Simple toggle
+
+```bash
+# ~/.config/hypr/hyprland.conf
+bind = SUPER, R, exec, hyprvoice toggle
+```
+
+Each press toggles between recording and idle.
+
+### Push-to-talk (hold-to-record)
+
+Combine both bind types to get hold-to-record behavior — press to start, release to stop:
+
+```bash
+# ~/.config/hypr/hyprland.conf
+bind  = SUPER, R, exec, hyprvoice toggle   # key down → start recording
+bindr = SUPER, R, exec, hyprvoice toggle    # key up   → stop and transcribe
+```
+
+This gives a walkie-talkie feel: hold the key while speaking, release when done. The daemon receives two `toggle` commands — the first starts recording, the second stops it and triggers transcription.
+
+### `bind` vs `bindr`
+
+| Keyword | Fires on |
+|---------|----------|
+| `bind` | Key **press** (down) |
+| `bindr` | Key **release** (up) |
+
+With `bindr`, modifier keys (SUPER, CTRL, etc.) are fully released before the command executes. This can prevent modifiers from interfering with text injection.
 
 ## Commands
 

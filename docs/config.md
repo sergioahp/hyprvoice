@@ -21,6 +21,7 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 
 ## Table of Contents
 
+- [Hyprland Keybinding Patterns](#hyprland-keybinding-patterns)
 - [Unified Provider System](#unified-provider-system)
 - [Transcription Providers](#transcription-providers)
   - [Cloud Providers](#cloud-providers)
@@ -35,6 +36,40 @@ Configuration is stored in `~/.config/hyprvoice/config.toml` and changes are app
 - [Notifications](#notifications)
 - [Example Configurations](#example-configurations)
 - [Legacy Configs](#legacy-configs)
+
+## Hyprland Keybinding Patterns
+
+Hyprvoice is triggered via Hyprland keybindings. The bind type you choose affects reliability and workflow.
+
+### Simple toggle
+
+```bash
+# ~/.config/hypr/hyprland.conf
+bind = SUPER, R, exec, hyprvoice toggle
+```
+
+Each press toggles between recording and idle.
+
+### Push-to-talk (hold-to-record)
+
+Pair `bind` (press) with `bindr` (release) on the same key for hold-to-record:
+
+```bash
+# ~/.config/hypr/hyprland.conf
+bind  = SUPER, R, exec, hyprvoice toggle   # key down → start recording
+bindr = SUPER, R, exec, hyprvoice toggle    # key up   → stop and transcribe
+```
+
+Hold the key while speaking, release when done. Both lines send `toggle` to the daemon — the first starts the pipeline, the second stops it. Because the stop fires on release, modifiers are clean for injection.
+
+### `bind` vs `bindr`
+
+| Keyword | Fires on |
+|---------|----------|
+| `bind` | Key **press** (down) |
+| `bindr` | Key **release** (up) |
+
+With `bindr`, modifier keys (SUPER, CTRL, etc.) are fully released before the command executes. This can prevent modifiers from interfering with text injection.
 
 ## Unified Provider System
 
