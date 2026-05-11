@@ -72,10 +72,20 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 		Language: a.language,
 	}
 
-	// contextPrompt (scrollback) takes precedence over keyword hints
+	// contextPrompt (scrollback) takes precedence over keyword hints.
+	// gpt-4o-transcribe has a 16,000-token total context (audio + instructions).
+	// Reserve ~4,096 tokens for the prompt (~25%), leaving ~12k for audio.
+	// Terminal text (code, commands, output) encodes at roughly 3 chars/token
+	// with o200k_base, so 4096 × 3 = 12,288 chars is the conservative ceiling.
+	// Keep the tail so the most recent content (most relevant vocabulary) is preserved.
 	switch {
 	case a.contextPrompt != "":
-		req.Prompt = a.contextPrompt
+		p := a.contextPrompt
+		const maxChars = 12288
+		if len(p) > maxChars {
+			p = p[len(p)-maxChars:]
+		}
+		req.Prompt = p
 	case len(a.keywords) > 0:
 		req.Prompt = strings.Join(a.keywords, ", ")
 	}
