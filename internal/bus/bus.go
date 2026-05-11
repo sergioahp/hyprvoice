@@ -217,6 +217,31 @@ func RemovePidFile() error {
 	return pm.remove()
 }
 
+// SendCommandWithBody sends a command with a variable-length body using a
+// length-prefixed protocol: "<cmd> <len>\n<body>".
+// Used for toggle-with-context where the body is the terminal scrollback.
+func SendCommandWithBody(cmd byte, body string) (string, error) {
+	c, err := Dial()
+	if err != nil {
+		return "", fmt.Errorf("failed to connect to daemon: %w", err)
+	}
+	defer c.Close()
+
+	header := fmt.Sprintf("%c %d\n", cmd, len(body))
+	if _, err = fmt.Fprint(c, header); err != nil {
+		return "", fmt.Errorf("failed to send command: %w", err)
+	}
+	if _, err = fmt.Fprint(c, body); err != nil {
+		return "", fmt.Errorf("failed to send body: %w", err)
+	}
+
+	resp, err := bufio.NewReader(c).ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+	return resp, nil
+}
+
 func SendCommand(cmd byte) (string, error) {
 	c, err := Dial()
 	if err != nil {

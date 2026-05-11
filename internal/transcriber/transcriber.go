@@ -26,13 +26,14 @@ type BatchAdapter interface {
 
 // Configuration for the transcriber
 type Config struct {
-	Provider  string
-	APIKey    string
-	Language  string
-	Model     string
-	Keywords  []string
-	Threads   int  // CPU threads for local transcription (0 = auto)
-	Streaming bool // use streaming mode if model supports it
+	Provider      string
+	APIKey        string
+	Language      string
+	Model         string
+	Keywords      []string
+	Threads       int    // CPU threads for local transcription (0 = auto)
+	Streaming     bool   // use streaming mode if model supports it
+	ContextPrompt string // terminal scrollback passed as transcription prompt
 }
 
 // NewTranscriber creates a new transcriber based on model metadata
@@ -121,7 +122,7 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	var adapter BatchAdapter
 	switch model.AdapterType {
 	case provider.AdapterOpenAI:
-		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider)
+		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider, config.ContextPrompt)
 	case provider.AdapterElevenLabs:
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterDeepgram:

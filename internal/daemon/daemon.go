@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -25,7 +28,8 @@ type Daemon struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pipeline pipeline.Pipeline
+	pipeline        pipeline.Pipeline
+	contextSession  bool // current pipeline was started with scrollback context
 
 	wg sync.WaitGroup
 }
@@ -81,6 +85,7 @@ func (d *Daemon) stopPipeline() {
 	d.mu.Lock()
 	p := d.pipeline
 	d.pipeline = nil
+	d.contextSession = false
 	d.mu.Unlock()
 
 	if p != nil {
@@ -150,7 +155,8 @@ func (d *Daemon) handle(c net.Conn) {
 	defer c.Close()
 	defer d.wg.Done()
 
-	line, err := bufio.NewReader(c).ReadString('\n')
+	reader := bufio.NewReader(c)
+	line, err := reader.ReadString('\n')
 	if err != nil {
 		log.Printf("Client read error: %v", err)
 		fmt.Fprintf(c, "ERR read_error: %v\n", err)
@@ -166,6 +172,15 @@ func (d *Daemon) handle(c net.Conn) {
 	case 't':
 		d.toggle()
 		fmt.Fprint(c, "OK toggled\n")
+	case 'x':
+		// length-prefixed body: "x <len>\n<body>"
+		ctx, err := d.readBody(reader, line)
+		if err != nil {
+			fmt.Fprintf(c, "ERR read_body: %v\n", err)
+			return
+		}
+		d.startWithContext(ctx)
+		fmt.Fprint(c, "OK started-with-context\n")
 	case 'c':
 		d.cancelPipeline()
 		fmt.Fprint(c, "OK cancelled\n")
@@ -181,6 +196,19 @@ func (d *Daemon) handle(c net.Conn) {
 		log.Printf("Unknown command: %c", cmd)
 		fmt.Fprintf(c, "ERR unknown=%q\n", cmd)
 	}
+}
+
+func (d *Daemon) readBody(reader *bufio.Reader, header string) (string, error) {
+	lenStr := strings.TrimSpace(header[1:])
+	bodyLen, err := strconv.Atoi(lenStr)
+	if err != nil || bodyLen < 0 {
+		return "", fmt.Errorf("invalid body length %q", lenStr)
+	}
+	body := make([]byte, bodyLen)
+	if _, err := io.ReadFull(reader, body); err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 func (d *Daemon) toggle() {
@@ -208,6 +236,7 @@ func (d *Daemon) toggle() {
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
+		isCtx := d.contextSession
 		if d.pipeline != nil {
 			actionChan := d.pipeline.GetActionCh()
 			log.Printf("Daemon: Sending inject action to pipeline")
@@ -216,12 +245,39 @@ func (d *Daemon) toggle() {
 		} else {
 			d.mu.RUnlock()
 		}
-		go d.notifier.Send(notify.MsgTranscribing)
+		if isCtx {
+			go d.notifier.Send(notify.MsgContextTranscribing)
+		} else {
+			go d.notifier.Send(notify.MsgTranscribing)
+		}
 
 	case pipeline.Injecting:
 		d.stopPipeline()
 		go d.notifier.Send(notify.MsgInjectionAborted)
 	}
+}
+
+func (d *Daemon) startWithContext(contextPrompt string) {
+	if d.configMgr.IsLegacy() {
+		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
+		return
+	}
+	if d.status() != pipeline.Idle {
+		log.Printf("Daemon: start-with-context requested but not idle, ignoring")
+		return
+	}
+	conf := d.configMgr.GetConfig()
+	p := pipeline.New(conf, pipeline.WithContextPrompt(contextPrompt))
+	p.Run(d.ctx)
+
+	d.mu.Lock()
+	d.pipeline = p
+	d.contextSession = true
+	d.mu.Unlock()
+
+	go d.notifier.Send(notify.MsgContextRecordingStarted)
+	go d.monitorPipelineErrors(p)
+	go d.monitorPipelineNotifications(p)
 }
 
 func (d *Daemon) cancelPipeline() {

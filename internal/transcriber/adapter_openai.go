@@ -15,11 +15,12 @@ import (
 // OpenAIAdapter implements BatchAdapter for any OpenAI-compatible API
 // Works with OpenAI, Groq, Mistral, and any other OpenAI-compatible endpoint
 type OpenAIAdapter struct {
-	client       *openai.Client
-	model        string
-	language     string
-	keywords     []string
-	providerName string
+	client        *openai.Client
+	model         string
+	language      string
+	keywords      []string
+	providerName  string
+	contextPrompt string
 }
 
 // NewOpenAIAdapter creates an adapter for OpenAI-compatible transcription APIs
@@ -29,7 +30,7 @@ type OpenAIAdapter struct {
 // lang: provider language code
 // keywords: optional spelling hints
 // providerName: used for logging and language format conversion
-func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string, providerName string) *OpenAIAdapter {
+func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string, providerName, contextPrompt string) *OpenAIAdapter {
 	var client *openai.Client
 
 	if endpoint != nil && endpoint.BaseURL != "" {
@@ -43,11 +44,12 @@ func NewOpenAIAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang str
 	}
 
 	return &OpenAIAdapter{
-		client:       client,
-		model:        model,
-		language:     lang,
-		keywords:     keywords,
-		providerName: providerName,
+		client:        client,
+		model:         model,
+		language:      lang,
+		keywords:      keywords,
+		providerName:  providerName,
+		contextPrompt: contextPrompt,
 	}
 }
 
@@ -70,8 +72,11 @@ func (a *OpenAIAdapter) Transcribe(ctx context.Context, audioData []byte) (strin
 		Language: a.language,
 	}
 
-	// Add keywords as initial_prompt to help with spelling hints
-	if len(a.keywords) > 0 {
+	// contextPrompt (scrollback) takes precedence over keyword hints
+	switch {
+	case a.contextPrompt != "":
+		req.Prompt = a.contextPrompt
+	case len(a.keywords) > 0:
 		req.Prompt = strings.Join(a.keywords, ", ")
 	}
 

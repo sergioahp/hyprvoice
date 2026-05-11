@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -33,6 +34,7 @@ func init() {
 	rootCmd.AddCommand(
 		serveCmd(),
 		toggleCmd(),
+		startWithContextCmd(),
 		cancelCmd(),
 		statusCmd(),
 		versionCmd(),
@@ -65,6 +67,25 @@ func toggleCmd() *cobra.Command {
 			resp, err := bus.SendCommand('t')
 			if err != nil {
 				return fmt.Errorf("failed to toggle recording: %w", err)
+			}
+			fmt.Print(resp)
+			return nil
+		},
+	}
+}
+
+func startWithContextCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start-with-context",
+		Short: "Start recording using stdin as transcription context (e.g. terminal scrollback)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			body, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("failed to read stdin: %w", err)
+			}
+			resp, err := bus.SendCommandWithBody('x', string(body))
+			if err != nil {
+				return fmt.Errorf("failed to start recording: %w", err)
 			}
 			fmt.Print(resp)
 			return nil

@@ -45,13 +45,18 @@ func (d *Desktop) Send(mt MessageType) {
 	}
 	// Use persistent notifications (Dunst replace ID 9999) for recording state transitions
 	// so all state changes replace the same notification rather than spawning new ones.
+	const blueCtx = "#2d5fad"
 	switch mt {
 	case MsgRecordingStarted:
-		d.persistentNotify(msg.Title, "🎤 Recording...", 0)
+		d.persistentNotify(msg.Title, "🎤 Recording...", 0, "")
 	case MsgTranscribing:
-		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0)
+		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0, "")
+	case MsgContextRecordingStarted:
+		d.persistentNotify(msg.Title, "🎤 Recording...", 0, blueCtx)
+	case MsgContextTranscribing:
+		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0, blueCtx)
 	case MsgOperationCancelled, MsgRecordingAborted, MsgInjectionAborted:
-		d.persistentNotify(msg.Title, "❌ Cancelled", 5000)
+		d.persistentNotify(msg.Title, "❌ Cancelled", 5000, "")
 	default:
 		d.notify(msg.Title, msg.Body)
 	}
@@ -73,14 +78,18 @@ func (d *Desktop) notify(title, body string) {
 
 // persistentNotify sends a notification replacing the recording notification via Dunst replace ID.
 // timeoutMs=0 means persistent (no auto-dismiss); >0 auto-dismisses after that many milliseconds.
-func (d *Desktop) persistentNotify(title, body string, timeoutMs int) {
-	cmd := exec.Command("notify-send",
+// bgColor is an optional hex color (e.g. "#2d5fad") passed as a dunst bgcolor hint; empty = default.
+func (d *Desktop) persistentNotify(title, body string, timeoutMs int, bgColor string) {
+	args := []string{
 		"-a", "Hyprvoice",
 		"-r", fmt.Sprintf("%d", RecordingNotificationID),
 		"-t", fmt.Sprintf("%d", timeoutMs),
-		title,
-		body,
-	)
+	}
+	if bgColor != "" {
+		args = append(args, "-h", "string:bgcolor:"+bgColor)
+	}
+	args = append(args, title, body)
+	cmd := exec.Command("notify-send", args...)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}

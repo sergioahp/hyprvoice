@@ -11,6 +11,10 @@ const (
 	MsgOperationCancelled
 	MsgRecordingAborted
 	MsgInjectionAborted
+	// Context variants: same lifecycle as the above but displayed in blue
+	// to signal that terminal scrollback is being used as transcription context.
+	MsgContextRecordingStarted
+	MsgContextTranscribing
 )
 
 // MessageDef defines a message type with its config key and defaults
@@ -31,6 +35,9 @@ var MessageDefs = []MessageDef{
 	{MsgOperationCancelled, "operation_cancelled", "Hyprvoice", "Operation Cancelled", false},
 	{MsgRecordingAborted, "recording_aborted", "", "Recording Aborted", true},
 	{MsgInjectionAborted, "injection_aborted", "", "Injection Aborted", true},
+	// context variants share the same config strings; colour is applied in notify.go
+	{MsgContextRecordingStarted, "recording_started", "Hyprvoice", "Recording Started", false},
+	{MsgContextTranscribing, "transcribing", "Hyprvoice", "Recording Ended... Transcribing", false},
 }
 
 // Message is a resolved message ready for display

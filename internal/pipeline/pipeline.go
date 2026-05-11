@@ -83,6 +83,13 @@ func WithLLMAdapterFactory(f LLMAdapterFactory) Option {
 	}
 }
 
+// WithContextPrompt passes terminal scrollback as transcription prompt
+func WithContextPrompt(s string) Option {
+	return func(p *pipeline) {
+		p.contextPrompt = s
+	}
+}
+
 type pipeline struct {
 	status   Status
 	actionCh chan Action
@@ -102,6 +109,8 @@ type pipeline struct {
 	transcriberFactory TranscriberFactory
 	injectorFactory    InjectorFactory
 	llmAdapterFactory  LLMAdapterFactory
+
+	contextPrompt string
 }
 
 func New(cfg *config.Config, opts ...Option) Pipeline {
@@ -157,7 +166,9 @@ func (p *pipeline) run(ctx context.Context) {
 
 	defer recorder.Stop()
 
-	t, err := p.transcriberFactory(p.config.ToTranscriberConfig())
+	tCfg := p.config.ToTranscriberConfig()
+	tCfg.ContextPrompt = p.contextPrompt
+	t, err := p.transcriberFactory(tCfg)
 	if err != nil {
 		log.Printf("Pipeline: Failed to create transcriber: %v", err)
 		p.sendError("Transcription Error", "Failed to create transcriber", err)
