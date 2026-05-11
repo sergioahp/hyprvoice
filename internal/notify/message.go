@@ -15,6 +15,8 @@ const (
 	// to signal that terminal scrollback is being used as transcription context.
 	MsgContextRecordingStarted
 	MsgContextTranscribing
+	MsgInjectionCompleted
+	MsgContextInjectionCompleted
 )
 
 // MessageDef defines a message type with its config key and defaults
@@ -38,6 +40,8 @@ var MessageDefs = []MessageDef{
 	// context variants share the same config strings; colour is applied in notify.go
 	{MsgContextRecordingStarted, "recording_started", "Hyprvoice", "Recording Started", false},
 	{MsgContextTranscribing, "transcribing", "Hyprvoice", "Recording Ended... Transcribing", false},
+	{MsgInjectionCompleted, "injection_completed", "Hyprvoice", "Done", false},
+	{MsgContextInjectionCompleted, "injection_completed", "Hyprvoice", "Done", false},
 }
 
 // Message is a resolved message ready for display

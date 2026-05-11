@@ -105,8 +105,8 @@ func TestNotifierInterface(t *testing.T) {
 
 func TestMessageDefs(t *testing.T) {
 	// Verify MessageDefs contains expected entries
-	if len(MessageDefs) != 7 {
-		t.Errorf("Expected 7 MessageDefs, got %d", len(MessageDefs))
+	if len(MessageDefs) != 11 {
+		t.Errorf("Expected 11 MessageDefs, got %d", len(MessageDefs))
 	}
 
 	// Verify each has required fields

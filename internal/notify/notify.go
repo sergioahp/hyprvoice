@@ -45,18 +45,23 @@ func (d *Desktop) Send(mt MessageType) {
 	}
 	// Use persistent notifications (Dunst replace ID 9999) for recording state transitions
 	// so all state changes replace the same notification rather than spawning new ones.
-	const blueCtx = "#2d5fad"
+	// Context sessions use appname "HyprvoiceCtx" so dunst's rule-hyprvoice-ctx applies
+	// a blue tint at the same 38% opacity as the regular pink rule.
 	switch mt {
 	case MsgRecordingStarted:
-		d.persistentNotify(msg.Title, "🎤 Recording...", 0, "")
+		d.persistentNotify("Hyprvoice", msg.Title, "🎤 Recording...", 0)
 	case MsgTranscribing:
-		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0, "")
+		d.persistentNotify("Hyprvoice", msg.Title, "⏳ Transcribing...", 0)
+	case MsgInjectionCompleted:
+		d.persistentNotify("Hyprvoice", msg.Title, "✅ Done", 5000)
 	case MsgContextRecordingStarted:
-		d.persistentNotify(msg.Title, "🎤 Recording...", 0, blueCtx)
+		d.persistentNotify("HyprvoiceCtx", msg.Title, "🎤 Recording...", 0)
 	case MsgContextTranscribing:
-		d.persistentNotify(msg.Title, "⏳ Transcribing...", 0, blueCtx)
+		d.persistentNotify("HyprvoiceCtx", msg.Title, "⏳ Transcribing...", 0)
+	case MsgContextInjectionCompleted:
+		d.persistentNotify("HyprvoiceCtx", msg.Title, "✅ Done", 5000)
 	case MsgOperationCancelled, MsgRecordingAborted, MsgInjectionAborted:
-		d.persistentNotify(msg.Title, "❌ Cancelled", 5000, "")
+		d.persistentNotify("Hyprvoice", msg.Title, "❌ Cancelled", 5000)
 	default:
 		d.notify(msg.Title, msg.Body)
 	}
@@ -77,18 +82,15 @@ func (d *Desktop) notify(title, body string) {
 }
 
 // persistentNotify sends a notification replacing the recording notification via Dunst replace ID.
+// appname selects the dunst rule (e.g. "Hyprvoice" for pink, "HyprvoiceCtx" for blue).
 // timeoutMs=0 means persistent (no auto-dismiss); >0 auto-dismisses after that many milliseconds.
-// bgColor is an optional hex color (e.g. "#2d5fad") passed as a dunst bgcolor hint; empty = default.
-func (d *Desktop) persistentNotify(title, body string, timeoutMs int, bgColor string) {
+func (d *Desktop) persistentNotify(appname, title, body string, timeoutMs int) {
 	args := []string{
-		"-a", "Hyprvoice",
+		"-a", appname,
 		"-r", fmt.Sprintf("%d", RecordingNotificationID),
 		"-t", fmt.Sprintf("%d", timeoutMs),
+		title, body,
 	}
-	if bgColor != "" {
-		args = append(args, "-h", "string:bgcolor:"+bgColor)
-	}
-	args = append(args, title, body)
 	cmd := exec.Command("notify-send", args...)
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to send notification: %v", err)

@@ -323,7 +323,7 @@ func TestDaemon_Handle_Commands(t *testing.T) {
 		{"toggle_command", "t\n", "OK toggled\n"},
 		{"version_command", "v\n", "STATUS proto="},
 		{"quit_command", "q\n", "OK quitting\n"},
-		{"unknown_command", "x\n", "ERR unknown="},
+		{"unknown_command", "z\n", "ERR unknown="},
 	}
 
 	for _, tt := range tests {
