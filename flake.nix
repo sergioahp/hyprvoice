@@ -26,7 +26,7 @@
 
           src = ./.;
 
-          vendorHash = "sha256-qYZGccprn+pRbpVeO1qzSOb8yz/j/jdzPMxFyIB9BNA=";
+          vendorHash = "sha256-b1IsFlhj+xTQT/4PzL97YjVjjS7TQtcIsbeK3dLOxR4=";
 
           inherit doCheck;
 
@@ -77,6 +77,16 @@
 
           # Unit tests with runtime dependencies available
           test = buildHyprvoice { doCheck = true; };
+        };
+
+        devShells.python = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            (python3.withPackages (ps: with ps; [
+              openai
+              websocket-client
+              numpy
+            ]))
+          ];
         };
 
         devShells.default = pkgs.mkShell {
