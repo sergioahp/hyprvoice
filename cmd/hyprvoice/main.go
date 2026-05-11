@@ -34,7 +34,6 @@ func init() {
 	rootCmd.AddCommand(
 		serveCmd(),
 		toggleCmd(),
-		startWithContextCmd(),
 		cancelCmd(),
 		statusCmd(),
 		versionCmd(),
@@ -62,30 +61,22 @@ func serveCmd() *cobra.Command {
 func toggleCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "toggle",
-		Short: "Toggle recording on/off",
+		Short: "Toggle recording on/off; pipe stdin to start with scrollback context",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			resp, err := bus.SendCommand('t')
+			var resp string
+			var err error
+			fi, statErr := os.Stdin.Stat()
+			if statErr == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
+				body, readErr := io.ReadAll(os.Stdin)
+				if readErr != nil {
+					return fmt.Errorf("failed to read stdin: %w", readErr)
+				}
+				resp, err = bus.SendCommandWithBody('t', string(body))
+			} else {
+				resp, err = bus.SendCommand('t')
+			}
 			if err != nil {
 				return fmt.Errorf("failed to toggle recording: %w", err)
-			}
-			fmt.Print(resp)
-			return nil
-		},
-	}
-}
-
-func startWithContextCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "start-with-context",
-		Short: "Start recording using stdin as transcription context (e.g. terminal scrollback)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			body, err := io.ReadAll(os.Stdin)
-			if err != nil {
-				return fmt.Errorf("failed to read stdin: %w", err)
-			}
-			resp, err := bus.SendCommandWithBody('x', string(body))
-			if err != nil {
-				return fmt.Errorf("failed to start recording: %w", err)
 			}
 			fmt.Print(resp)
 			return nil

@@ -170,17 +170,18 @@ func (d *Daemon) handle(c net.Conn) {
 
 	switch cmd {
 	case 't':
-		d.toggle()
-		fmt.Fprint(c, "OK toggled\n")
-	case 'x':
-		// length-prefixed body: "x <len>\n<body>"
-		ctx, err := d.readBody(reader, line)
-		if err != nil {
-			fmt.Fprintf(c, "ERR read_body: %v\n", err)
-			return
+		// Optional context body: "t <len>\n<body>" or plain "t\n"
+		var contextPrompt string
+		if lenStr := strings.TrimSpace(line[1:]); lenStr != "" {
+			var err error
+			contextPrompt, err = d.readBody(reader, line)
+			if err != nil {
+				fmt.Fprintf(c, "ERR read_body: %v\n", err)
+				return
+			}
 		}
-		d.startWithContext(ctx)
-		fmt.Fprint(c, "OK started-with-context\n")
+		d.toggle(contextPrompt)
+		fmt.Fprint(c, "OK toggled\n")
 	case 'c':
 		d.cancelPipeline()
 		fmt.Fprint(c, "OK cancelled\n")
@@ -211,7 +212,7 @@ func (d *Daemon) readBody(reader *bufio.Reader, header string) (string, error) {
 	return string(body), nil
 }
 
-func (d *Daemon) toggle() {
+func (d *Daemon) toggle(contextPrompt string) {
 	if d.configMgr.IsLegacy() {
 		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
 		return
@@ -219,15 +220,23 @@ func (d *Daemon) toggle() {
 	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
-		p := pipeline.New(conf)
+		var opts []pipeline.Option
+		if contextPrompt != "" {
+			opts = append(opts, pipeline.WithContextPrompt(contextPrompt))
+		}
+		p := pipeline.New(conf, opts...)
 		p.Run(d.ctx)
 
 		d.mu.Lock()
 		d.pipeline = p
-		d.contextSession = false
+		d.contextSession = contextPrompt != ""
 		d.mu.Unlock()
 
-		go d.notifier.Send(notify.MsgRecordingStarted)
+		if contextPrompt != "" {
+			go d.notifier.Send(notify.MsgContextRecordingStarted)
+		} else {
+			go d.notifier.Send(notify.MsgRecordingStarted)
+		}
 		go d.monitorPipelineErrors(p)
 		go d.monitorPipelineNotifications(p)
 
@@ -256,29 +265,6 @@ func (d *Daemon) toggle() {
 		d.stopPipeline()
 		go d.notifier.Send(notify.MsgInjectionAborted)
 	}
-}
-
-func (d *Daemon) startWithContext(contextPrompt string) {
-	if d.configMgr.IsLegacy() {
-		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
-		return
-	}
-	if d.status() != pipeline.Idle {
-		log.Printf("Daemon: start-with-context requested but not idle, ignoring")
-		return
-	}
-	conf := d.configMgr.GetConfig()
-	p := pipeline.New(conf, pipeline.WithContextPrompt(contextPrompt))
-	p.Run(d.ctx)
-
-	d.mu.Lock()
-	d.pipeline = p
-	d.contextSession = true
-	d.mu.Unlock()
-
-	go d.notifier.Send(notify.MsgContextRecordingStarted)
-	go d.monitorPipelineErrors(p)
-	go d.monitorPipelineNotifications(p)
 }
 
 func (d *Daemon) cancelPipeline() {

@@ -134,12 +134,12 @@ func TestDaemon_Toggle(t *testing.T) {
 	}
 
 	// Test toggle from idle to recording
-	daemon.toggle()
+	daemon.toggle("")
 	status := daemon.status()
 	t.Logf("Status after first toggle = %s", status)
 
 	// Test toggle from recording to idle (abort)
-	daemon.toggle()
+	daemon.toggle("")
 	status = daemon.status()
 	t.Logf("Status after second toggle = %s", status)
 }
