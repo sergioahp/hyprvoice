@@ -224,6 +224,7 @@ func (d *Daemon) toggle() {
 
 		d.mu.Lock()
 		d.pipeline = p
+		d.contextSession = false
 		d.mu.Unlock()
 
 		go d.notifier.Send(notify.MsgRecordingStarted)
