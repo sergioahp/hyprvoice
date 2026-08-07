@@ -17,6 +17,12 @@ type Model struct {
 	SupportsBatch      bool            // can do batch/non-streaming transcription
 	SupportsStreaming  bool            // can do real-time streaming transcription
 	Local              bool            // runs locally (no API call)
+	// SupportsContextFields marks models taking gpt-transcribe's `keywords` and
+	// `languages` conditioning fields. For those, `languages` replaces the
+	// singular `language` and sending both is rejected. go-openai's AudioRequest
+	// has no field for either, so these models bypass the SDK (see
+	// transcriber.OpenAIAdapter).
+	SupportsContextFields bool
 	AdapterType        string          // which adapter to use (e.g., "openai", "elevenlabs", "whisper-cpp")
 	StreamingAdapter   string          // adapter for streaming mode (if different from AdapterType)
 	StreamingEndpoint  *EndpointConfig // endpoint for streaming mode (if different from Endpoint)

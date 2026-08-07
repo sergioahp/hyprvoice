@@ -29,6 +29,7 @@ type Config struct {
 	Provider      string
 	APIKey        string
 	Language      string
+	Languages     []string // expected input languages; models with context fields only
 	Model         string
 	Keywords      []string
 	Threads       int    // CPU threads for local transcription (0 = auto)
@@ -80,6 +81,20 @@ func NewTranscriber(config Config) (Transcriber, error) {
 		return nil, fmt.Errorf("model %s does not support language %s", model.ID, config.Language)
 	}
 
+	if len(config.Languages) > 0 {
+		if !model.SupportsContextFields {
+			return nil, fmt.Errorf("model %s does not support the languages list (use a single language instead)", model.ID)
+		}
+		if config.Language != "" {
+			return nil, fmt.Errorf("model %s accepts either language or languages, not both", model.ID)
+		}
+		for _, lang := range config.Languages {
+			if !model.SupportsLanguage(lang) {
+				return nil, fmt.Errorf("model %s does not support language %s", model.ID, lang)
+			}
+		}
+	}
+
 	// validate streaming/batch mode compatibility
 	if config.Streaming && !model.SupportsStreaming {
 		return nil, fmt.Errorf("model %s does not support streaming mode", model.ID)
@@ -122,7 +137,17 @@ func NewTranscriber(config Config) (Transcriber, error) {
 	var adapter BatchAdapter
 	switch model.AdapterType {
 	case provider.AdapterOpenAI:
-		adapter = NewOpenAIAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords, registryProvider, config.ContextPrompt)
+		adapter = NewOpenAIAdapter(OpenAIAdapterConfig{
+			Endpoint:      model.Endpoint,
+			APIKey:        config.APIKey,
+			Model:         model.ID,
+			ProviderName:  registryProvider,
+			Language:      config.Language,
+			Languages:     config.Languages,
+			Keywords:      config.Keywords,
+			ContextPrompt: config.ContextPrompt,
+			ContextFields: model.SupportsContextFields,
+		})
 	case provider.AdapterElevenLabs:
 		adapter = NewElevenLabsAdapter(model.Endpoint, config.APIKey, model.ID, config.Language, config.Keywords)
 	case provider.AdapterDeepgram:

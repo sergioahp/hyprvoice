@@ -47,9 +47,9 @@ func TestGetTranscriptionModelOptions_NoHeadersAnymore(t *testing.T) {
 func TestGetTranscriptionModelOptions_OpenAI_ShowsCapabilities(t *testing.T) {
 	options := getTranscriptionModelOptions("openai")
 
-	// OpenAI has 4 transcription models: whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
-	if len(options) != 4 {
-		t.Errorf("expected 4 options for openai, got %d", len(options))
+	// OpenAI has 5 transcription models: gpt-transcribe, whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe, gpt-4o-realtime-preview
+	if len(options) != 5 {
+		t.Errorf("expected 5 options for openai, got %d", len(options))
 	}
 
 	// gpt-4o-realtime-preview should mention streaming

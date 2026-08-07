@@ -105,6 +105,26 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	// the plural languages list is accepted only by models with context fields,
+	// where it replaces the singular language field
+	if len(c.Transcription.Languages) > 0 {
+		model, err := provider.GetModel(registryName, c.Transcription.Model)
+		if err != nil {
+			return err
+		}
+		if !model.SupportsContextFields {
+			return fmt.Errorf("transcription.languages is not supported by %s (use transcription.language instead)", c.Transcription.Model)
+		}
+		if effectiveLanguage != "" {
+			return fmt.Errorf("set either transcription.language or transcription.languages for %s, not both", c.Transcription.Model)
+		}
+		for _, lang := range c.Transcription.Languages {
+			if err := ValidateModelLanguageCompatibility(registryName, c.Transcription.Model, lang); err != nil {
+				return err
+			}
+		}
+	}
+
 	// LLM validation
 	if c.LLM.Enabled {
 		if c.LLM.Provider == "" {

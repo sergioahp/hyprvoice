@@ -622,7 +622,14 @@ func TestOpenAIAdapter_Creation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			adapter := NewOpenAIAdapter(tt.endpoint, tt.apiKey, tt.model, tt.language, tt.keywords, tt.providerName, "")
+			adapter := NewOpenAIAdapter(OpenAIAdapterConfig{
+				Endpoint:     tt.endpoint,
+				APIKey:       tt.apiKey,
+				Model:        tt.model,
+				Language:     tt.language,
+				Keywords:     tt.keywords,
+				ProviderName: tt.providerName,
+			})
 			if adapter == nil {
 				t.Errorf("NewOpenAIAdapter() returned nil")
 				return

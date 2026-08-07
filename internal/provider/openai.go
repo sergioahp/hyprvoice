@@ -34,6 +34,20 @@ func (p *OpenAIProvider) Models() []Model {
 	return []Model{
 		// transcription models
 		{
+			ID:                    "gpt-transcribe",
+			Name:                  "GPT Transcribe",
+			Description:           "Current best; multi-language input, keyword hints, cheapest per minute",
+			Type:                  Transcription,
+			SupportsBatch:         true,
+			SupportsStreaming:     false,
+			Local:                 false,
+			AdapterType:           AdapterOpenAI,
+			SupportsContextFields: true,
+			SupportedLanguages:    allLangs,
+			Endpoint:              &EndpointConfig{BaseURL: "https://api.openai.com", Path: "/v1/audio/transcriptions"},
+			DocsURL:               docsURL,
+		},
+		{
 			ID:                 "whisper-1",
 			Name:               "Whisper 1",
 			Description:        "Reliable and cost-effective; good default for most use cases",

@@ -70,6 +70,16 @@ func Save(cfg *Config) error {
 `)
 	sb.WriteString(fmt.Sprintf("  provider = %q\n", cfg.Transcription.Provider))
 	sb.WriteString(fmt.Sprintf("  language = %q\n", cfg.Transcription.Language))
+	if len(cfg.Transcription.Languages) > 0 {
+		sb.WriteString("  languages = [")
+		for i, l := range cfg.Transcription.Languages {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(fmt.Sprintf("%q", l))
+		}
+		sb.WriteString("]\n")
+	}
 	sb.WriteString(fmt.Sprintf("  model = %q\n", cfg.Transcription.Model))
 	sb.WriteString(fmt.Sprintf("  streaming = %v\n", cfg.Transcription.Streaming))
 	sb.WriteString(fmt.Sprintf("  threads = %d\n", cfg.Transcription.Threads))
@@ -242,8 +252,10 @@ keywords = []
 
 [transcription]
   provider = "openai"          # "openai", "groq-transcription", "mistral-transcription", "elevenlabs", "whisper-cpp"
-  model = "whisper-1"          # Model: OpenAI="whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
+  model = "whisper-1"          # Model: OpenAI="gpt-transcribe" (recommended) or "whisper-1", Groq="whisper-large-v3", Mistral="voxtral-mini-latest", ElevenLabs="scribe_v1"
   language = ""                # ISO 639-1 code (e.g., en, es, de). Empty for auto-detect.
+  # languages = ["en", "es"]   # gpt-transcribe only: expected input languages for
+                               # mixed-language speech. Replaces "language"; set one or the other.
   threads = 0                  # CPU threads for local transcription (0 = auto: uses NumCPU-1)
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ func (c *Config) ToTranscriberConfig() transcriber.Config {
 	config := transcriber.Config{
 		Provider:  c.Transcription.Provider,
 		Language:  c.resolveEffectiveLanguage(),
+		Languages: c.Transcription.Languages,
 		Model:     c.Transcription.Model,
 		Keywords:  c.Keywords,
 		Threads:   c.Transcription.Threads,

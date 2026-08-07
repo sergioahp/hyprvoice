@@ -62,11 +62,15 @@ type RecordingConfig struct {
 }
 
 type TranscriptionConfig struct {
-	Provider  string `toml:"provider"`
-	Language  string `toml:"language"`
-	Model     string `toml:"model"`
-	Streaming bool   `toml:"streaming"` // use streaming mode if model supports it
-	Threads   int    `toml:"threads"`   // CPU threads for local transcription (0 = auto: NumCPU-1)
+	Provider string `toml:"provider"`
+	Language string `toml:"language"`
+	// Languages lists the expected input languages for models that accept the
+	// plural field (gpt-transcribe). It replaces Language there; setting both
+	// is a validation error.
+	Languages []string `toml:"languages"`
+	Model     string   `toml:"model"`
+	Streaming bool     `toml:"streaming"` // use streaming mode if model supports it
+	Threads   int      `toml:"threads"`   // CPU threads for local transcription (0 = auto: NumCPU-1)
 }
 
 type InjectionConfig struct {
