@@ -31,4 +31,22 @@ The `RecordingCancelled()` / `MsgRecordingCancelled` message type must be preser
 - Always preserve the Nix flake and HM module files — upstream does not have these.
 - If upstream refactors `internal/notify/`, integrate the persistent-notification behaviour into whatever new structure they introduce. The key invariant: cancel and abort paths must replace the same notification ID as the recording-started notification.
 - If upstream changes `internal/daemon/daemon.go`, make sure cancel/abort still calls the cancelled message type.
-- Run `nix develop --command go build ./...` and `nix develop --command go test ./...` after resolving to verify nothing broke.
+- Run `nix develop --command go build ./...` and the test command below after resolving to verify nothing broke.
+
+## Never run the bare `go test ./...` on a live desktop session
+
+`internal/injection/injection_test.go` exercises the REAL wtype / ydotool /
+wl-copy backends against the running Wayland compositor. Only 1 of its 12 test
+functions is guarded by `CI=true`; the others run unconditionally and will type
+`test`, `test text`, `test typing text` and `test fallback text` into whichever
+window currently has focus, and clobber the clipboard with
+`test clipboard text`. Text injected this way has previously triggered a
+compositor keybind and ended the session.
+
+Use:
+
+```bash
+nix develop --command bash -c 'go test $(go list ./... | grep -v /internal/injection)'
+```
+
+Setting `CI=true` is not sufficient — it only skips `TestInjector_Inject`.
