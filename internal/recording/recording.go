@@ -96,6 +96,16 @@ func (r *recorder) Stop() {
 
 func (r *recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, errCh chan<- error) {
 	defer func() {
+		// Reap pw-record so it doesn't linger as a zombie; on context
+		// cancellation CommandContext kills it, Wait collects the exit status.
+		r.mu.Lock()
+		cmd := r.cmd
+		r.cmd = nil
+		r.mu.Unlock()
+		if cmd != nil {
+			_ = cmd.Wait()
+		}
+
 		close(frameCh)
 		close(errCh)
 		r.recording.Store(false)
