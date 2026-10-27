@@ -237,8 +237,8 @@ keywords = []
 # ─────────────────────────────────────────────────────────────────────────────
 
 [recording]
-  sample_rate = 16000          # Audio sample rate in Hz (16000 recommended for speech)
-  channels = 1                 # Number of audio channels (1 = mono, 2 = stereo)
+  sample_rate = 16000          # Required audio sample rate in Hz
+  channels = 1                 # Required channel count (mono)
   format = "s16"               # Audio format (s16 = 16-bit signed integers)
   buffer_size = 8192           # Internal buffer size in bytes (larger = less CPU, more latency)
   device = ""                  # PipeWire audio device (empty = use default microphone)

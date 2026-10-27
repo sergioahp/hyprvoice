@@ -3,11 +3,14 @@ package injection
 import (
 	"context"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestNewInjector(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{"wtype", "clipboard"},
 		YdotoolTimeout:   5 * time.Second,
@@ -31,6 +34,7 @@ func TestNewInjector(t *testing.T) {
 }
 
 func TestNewInjector_DefaultsToClipboard(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{},
 		ClipboardTimeout: 3 * time.Second,
@@ -52,6 +56,7 @@ func TestNewInjector_DefaultsToClipboard(t *testing.T) {
 }
 
 func TestNewInjector_IgnoresUnknownBackends(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{"unknown", "wtype", "invalid"},
 		WtypeTimeout:     5 * time.Second,
@@ -66,10 +71,8 @@ func TestNewInjector_IgnoresUnknownBackends(t *testing.T) {
 }
 
 func TestInjector_Inject(t *testing.T) {
-	// Skip integration tests in CI environments
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping integration test in CI environment")
-	}
+	mockInjectionCommands(t)
+	// External commands are replaced with local test helpers.
 
 	tests := []struct {
 		name    string
@@ -204,6 +207,7 @@ func TestClipboardBackend(t *testing.T) {
 
 // TestInjector_ClipboardMode tests clipboard-only injection
 func TestInjector_ClipboardMode(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{"clipboard"},
 		ClipboardTimeout: 3 * time.Second,
@@ -224,6 +228,7 @@ func TestInjector_ClipboardMode(t *testing.T) {
 
 // TestInjector_WtypeMode tests wtype-only injection
 func TestInjector_WtypeMode(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:     []string{"wtype"},
 		WtypeTimeout: 5 * time.Second,
@@ -244,6 +249,7 @@ func TestInjector_WtypeMode(t *testing.T) {
 
 // TestInjector_FallbackChain tests fallback chain injection
 func TestInjector_FallbackChain(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{"ydotool", "wtype", "clipboard"},
 		YdotoolTimeout:   5 * time.Second,
@@ -266,6 +272,7 @@ func TestInjector_FallbackChain(t *testing.T) {
 
 // TestInjector_EmptyText tests injection of empty text
 func TestInjector_EmptyText(t *testing.T) {
+	mockInjectionCommands(t)
 	config := Config{
 		Backends:         []string{"clipboard"},
 		ClipboardTimeout: 3 * time.Second,
@@ -283,4 +290,22 @@ func TestInjector_EmptyText(t *testing.T) {
 	if err.Error() != "cannot inject empty text" {
 		t.Errorf("Inject() error message = %q, want %q", err.Error(), "cannot inject empty text")
 	}
+}
+
+func mockInjectionCommands(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	shell, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"wtype", "ydotool", "wl-copy"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!"+shell+"\nexit 0\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Restrict PATH so no real input or clipboard helper can reach the desktop.
+	t.Setenv("PATH", dir)
+	t.Setenv("WAYLAND_DISPLAY", "test-wayland")
+	t.Setenv("XDG_RUNTIME_DIR", dir)
 }

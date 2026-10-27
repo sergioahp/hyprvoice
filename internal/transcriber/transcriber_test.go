@@ -306,6 +306,7 @@ func TestSimpleTranscriber_Start(t *testing.T) {
 	}
 
 	// Stop the transcriber
+	close(frameCh)
 	err = transcriber.Stop(ctx)
 	if err != nil {
 		t.Errorf("Stop() error = %v", err)

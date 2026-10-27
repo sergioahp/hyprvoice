@@ -19,8 +19,12 @@ type SimpleTranscriber struct {
 	bufferMu    sync.Mutex
 
 	// Control
-	running bool
-	wg      sync.WaitGroup
+	lifecycleMu sync.Mutex
+	running     bool
+	stopErr     error
+	done        chan struct{}
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
 
 	// Transcription result
 	transcriptionMu   sync.RWMutex
@@ -35,11 +39,22 @@ func NewSimpleTranscriber(config Config, adapter BatchAdapter) *SimpleTranscribe
 }
 
 func (t *SimpleTranscriber) Start(ctx context.Context, frameCh <-chan recording.AudioFrame) (<-chan error, error) {
+	t.lifecycleMu.Lock()
+	defer t.lifecycleMu.Unlock()
 	if t.running {
 		return nil, fmt.Errorf("transcriber already running")
 	}
 
 	t.running = true
+	t.stopErr = nil
+	t.done = make(chan struct{})
+	ctx, t.cancel = context.WithCancel(ctx)
+	t.bufferMu.Lock()
+	t.audioBuffer = nil
+	t.bufferMu.Unlock()
+	t.transcriptionMu.Lock()
+	t.transcriptionText = ""
+	t.transcriptionMu.Unlock()
 
 	errCh := make(chan error, 1)
 
@@ -50,15 +65,27 @@ func (t *SimpleTranscriber) Start(ctx context.Context, frameCh <-chan recording.
 }
 
 func (t *SimpleTranscriber) Stop(ctx context.Context) error {
+	t.lifecycleMu.Lock()
+	defer t.lifecycleMu.Unlock()
 	if !t.running {
-		return nil
+		return t.stopErr
 	}
-
+	select {
+	case <-t.done:
+	case <-ctx.Done():
+		t.cancel()
+		<-t.done
+		t.stopErr = ctx.Err()
+	}
 	t.wg.Wait()
 	t.running = false
-
-	// Transcribe all collected audio using the passed context
-	return t.transcribeAll(ctx)
+	defer t.cancel()
+	if t.stopErr != nil {
+		return t.stopErr
+	}
+	// Transcribe all collected audio using the passed context.
+	t.stopErr = t.transcribeAll(ctx)
+	return t.stopErr
 }
 
 func (t *SimpleTranscriber) GetFinalTranscription() (string, error) {
@@ -70,6 +97,9 @@ func (t *SimpleTranscriber) GetFinalTranscription() (string, error) {
 func (t *SimpleTranscriber) collectAudio(ctx context.Context, frameCh <-chan recording.AudioFrame, errCh chan<- error) {
 	defer func() {
 		close(errCh)
+		if t.done != nil {
+			close(t.done)
+		}
 		t.wg.Done()
 	}()
 

@@ -749,25 +749,25 @@ func newAdvancedMenuScreen(state *wizardState, onBack func() screen, onboarding 
 func newRecordingSettingsScreen(state *wizardState, onBack func() screen) screen {
 	cfg := state.cfg.Recording
 	fields := []formField{
-		makeInputField("sample_rate", "Sample Rate (Hz)", "16000 is optimal for speech recognition.", strconv.Itoa(cfg.SampleRate), "16000", func(s string) error {
-			if _, err := strconv.Atoi(s); err != nil {
-				return fmt.Errorf("sample rate must be a number")
+		makeInputField("sample_rate", "Sample Rate (Hz)", "Transcription requires 16000 Hz.", strconv.Itoa(cfg.SampleRate), "16000", func(s string) error {
+			if v, err := strconv.Atoi(s); err != nil || v != 16000 {
+				return fmt.Errorf("sample rate must be 16000")
 			}
 			return nil
 		}),
-		makeInputField("channels", "Channels", "1 (mono) recommended.", strconv.Itoa(cfg.Channels), "1", func(s string) error {
+		makeInputField("channels", "Channels", "Transcription requires mono.", strconv.Itoa(cfg.Channels), "1", func(s string) error {
 			v, err := strconv.Atoi(s)
 			if err != nil {
 				return fmt.Errorf("channels must be a number")
 			}
-			if v != 1 && v != 2 {
-				return fmt.Errorf("channels must be 1 or 2")
+			if v != 1 {
+				return fmt.Errorf("channels must be 1 (mono)")
 			}
 			return nil
 		}),
-		makeInputField("format", "Audio Format", "Use s16 for most setups.", cfg.Format, "s16", func(s string) error {
-			if s != "s16" && s != "f32" {
-				return fmt.Errorf("format must be s16 or f32")
+		makeInputField("format", "Audio Format", "Transcription requires signed 16-bit PCM.", cfg.Format, "s16", func(s string) error {
+			if s != "s16" {
+				return fmt.Errorf("format must be s16")
 			}
 			return nil
 		}),

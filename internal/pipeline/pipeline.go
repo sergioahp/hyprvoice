@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
@@ -97,12 +96,11 @@ type pipeline struct {
 	notifyCh chan notify.MessageType
 	config   *config.Config
 
-	mu       sync.RWMutex
-	wg       sync.WaitGroup
-	cancel   context.CancelFunc
-	stopOnce sync.Once
-
-	running atomic.Bool
+	mu      sync.RWMutex
+	wg      sync.WaitGroup
+	cancel  context.CancelFunc
+	started bool
+	stopped bool
 
 	// dependency factories (for testing)
 	recorderFactory    RecorderFactory
@@ -115,6 +113,7 @@ type pipeline struct {
 
 func New(cfg *config.Config, opts ...Option) Pipeline {
 	p := &pipeline{
+		status:   Idle,
 		actionCh: make(chan Action, 1),
 		errorCh:  make(chan PipelineError, 10),
 		notifyCh: make(chan notify.MessageType, 10),
@@ -133,21 +132,27 @@ func New(cfg *config.Config, opts ...Option) Pipeline {
 	return p
 }
 func (p *pipeline) Run(ctx context.Context) {
-	if !p.running.CompareAndSwap(false, true) {
+	p.mu.Lock()
+	if p.started || p.stopped {
+		p.mu.Unlock()
 		log.Printf("Pipeline: Already running, ignoring Run() call")
 		return
 	}
 
 	runCtx, cancel := context.WithTimeout(ctx, p.config.Recording.Timeout)
-	p.setCancel(cancel)
-
+	p.started = true
+	p.status = Recording
+	p.cancel = cancel
 	p.wg.Add(1)
+	p.mu.Unlock()
 	go p.run(runCtx)
 }
 
 func (p *pipeline) run(ctx context.Context) {
 	defer func() {
-		p.running.Store(false)
+		p.getCancel()()
+		close(p.errorCh)
+		close(p.notifyCh)
 		p.setStatus(Idle)
 		p.wg.Done()
 	}()
@@ -184,8 +189,15 @@ func (p *pipeline) run(ctx context.Context) {
 		p.sendError("Transcription Error", "Failed to start transcriber", err)
 		return
 	}
+	if p.contextPrompt != "" {
+		p.sendNotify(notify.MsgContextRecordingStarted)
+	} else {
+		p.sendNotify(notify.MsgRecordingStarted)
+	}
 
 	defer func() {
+		p.getCancel()()
+		recorder.Stop()
 		if stopErr := t.Stop(ctx); stopErr != nil {
 			log.Printf("Pipeline: Error stopping transcriber: %v", stopErr)
 			// Silently call an error now because on simple transcriber we just transcribe all audio when we stop, and might fail when force stop
@@ -193,25 +205,33 @@ func (p *pipeline) run(ctx context.Context) {
 		}
 	}()
 
-	// Forward errors from component channels to unified pipeline error channel
-	go func() {
-		for err := range tErrCh {
-			p.sendError("Transcription Error", "Transcription processing error", err)
-		}
-	}()
-
-	go func() {
-		for err := range rErrCh {
-			p.sendError("Recording Error", "Recording stream error", err)
-		}
-	}()
-
 	for {
 		select {
+		case err, ok := <-rErrCh:
+			if ok && err != nil {
+				p.sendError("Recording Error", "Recording stream error", err)
+				return
+			}
+			if !ok {
+				rErrCh = nil
+			}
+		case err, ok := <-tErrCh:
+			if !ok {
+				tErrCh = nil
+				continue
+			}
+			if err != nil {
+				p.sendError("Transcription Error", "Transcription processing error", err)
+				if transcriber.IsFatalTranscriptionError(err) {
+					return
+				}
+			}
 		case action := <-p.actionCh:
 			switch action {
 			case Inject:
-				p.handleInjectAction(ctx, recorder, t)
+				p.handleInjectAction(ctx, recorder, t, rErrCh)
+				return
+			case Cancel:
 				return
 			}
 
@@ -285,7 +305,7 @@ func (p *pipeline) sendNotify(mt notify.MessageType) {
 	}
 }
 
-func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber) {
+func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber, rErrCh <-chan error) {
 	status := p.Status()
 
 	if status != Transcribing {
@@ -295,8 +315,24 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 
 	log.Printf("Pipeline: Inject action received, stopping recording and finalizing transcription")
 	p.setStatus(Injecting)
+	if p.contextPrompt != "" {
+		p.sendNotify(notify.MsgContextTranscribing)
+	} else {
+		p.sendNotify(notify.MsgTranscribing)
+	}
 
 	recorder.Stop()
+	// Stop closes the recorder's error channel. Check it before submitting any
+	// buffered audio, even if the inject action won the select above.
+	// Errors were also forwarded while recording by the main loop.
+	if rErrCh != nil {
+		for err := range rErrCh {
+			if err != nil {
+				p.sendError("Recording Error", "Recording stream error", err)
+				return
+			}
+		}
+	}
 
 	if err := t.Stop(ctx); err != nil {
 		p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
@@ -372,11 +408,12 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 }
 
 func (p *pipeline) Stop() {
-	p.stopOnce.Do(func() {
-		cancel := p.getCancel()
-		if cancel != nil {
-			cancel()
-		}
-	})
+	p.mu.Lock()
+	p.stopped = true
+	cancel := p.cancel
+	p.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	p.wg.Wait()
 }

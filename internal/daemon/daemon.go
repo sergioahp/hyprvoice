@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/bus"
 	"github.com/leonardotrapani/hyprvoice/internal/config"
@@ -22,16 +23,18 @@ import (
 
 type Daemon struct {
 	mu        sync.RWMutex
+	controlMu sync.Mutex
 	notifier  notify.Notifier
 	configMgr *config.Manager
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	pipeline        pipeline.Pipeline
-	contextSession  bool // current pipeline was started with scrollback context
+	pipeline       pipeline.Pipeline
+	contextSession bool // current pipeline was started with scrollback context
 
-	wg sync.WaitGroup
+	wg        sync.WaitGroup
+	monitorWG sync.WaitGroup
 }
 
 func New() (*Daemon, error) {
@@ -60,6 +63,8 @@ func New() (*Daemon, error) {
 }
 
 func (d *Daemon) onConfigReload() {
+	d.controlMu.Lock()
+	defer d.controlMu.Unlock()
 	log.Printf("Config reloaded, restarting pipeline")
 	d.stopPipeline()
 
@@ -69,7 +74,21 @@ func (d *Daemon) onConfigReload() {
 	d.notifier = notify.NewNotifier(conf.Notifications.Type, conf.Notifications.Messages.Resolve())
 	d.mu.Unlock()
 
-	d.notifier.Send(notify.MsgConfigReloaded)
+	d.sendNotify(notify.MsgConfigReloaded)
+}
+
+func (d *Daemon) sendNotify(mt notify.MessageType) {
+	d.mu.RLock()
+	notifier := d.notifier
+	d.mu.RUnlock()
+	notifier.Send(mt)
+}
+
+func (d *Daemon) sendError(message string) {
+	d.mu.RLock()
+	notifier := d.notifier
+	d.mu.RUnlock()
+	notifier.Error(message)
 }
 
 func (d *Daemon) status() pipeline.Status {
@@ -91,6 +110,7 @@ func (d *Daemon) stopPipeline() {
 	if p != nil {
 		p.Stop()
 	}
+	d.monitorWG.Wait()
 }
 
 func (d *Daemon) Run() error {
@@ -105,6 +125,8 @@ func (d *Daemon) Run() error {
 		return err
 	}
 	defer ln.Close()
+	defer d.cancel()
+	defer d.stopPipeline()
 
 	if err := bus.CreatePidFile(); err != nil {
 		return fmt.Errorf("failed to create PID file: %w", err)
@@ -121,9 +143,12 @@ func (d *Daemon) Run() error {
 	defer signal.Stop(sigCh)
 
 	go func() {
-		sig := <-sigCh
-		log.Printf("Received signal %v, shutting down gracefully", sig)
-		d.cancel()
+		select {
+		case sig := <-sigCh:
+			log.Printf("Received signal %v, shutting down gracefully", sig)
+			d.cancel()
+		case <-d.ctx.Done():
+		}
 	}()
 
 	go func() {
@@ -154,9 +179,13 @@ func (d *Daemon) Run() error {
 func (d *Daemon) handle(c net.Conn) {
 	defer c.Close()
 	defer d.wg.Done()
+	stopClose := context.AfterFunc(d.ctx, func() { c.Close() })
+	defer stopClose()
+	c.SetDeadline(time.Now().Add(5 * time.Second))
 
 	reader := bufio.NewReader(c)
-	line, err := reader.ReadString('\n')
+	header, err := reader.ReadSlice('\n')
+	line := string(header)
 	if err != nil {
 		log.Printf("Client read error: %v", err)
 		fmt.Fprintf(c, "ERR read_error: %v\n", err)
@@ -202,7 +231,7 @@ func (d *Daemon) handle(c net.Conn) {
 func (d *Daemon) readBody(reader *bufio.Reader, header string) (string, error) {
 	lenStr := strings.TrimSpace(header[1:])
 	bodyLen, err := strconv.Atoi(lenStr)
-	if err != nil || bodyLen < 0 {
+	if err != nil || bodyLen < 0 || bodyLen > 1024*1024 {
 		return "", fmt.Errorf("invalid body length %q", lenStr)
 	}
 	body := make([]byte, bodyLen)
@@ -213,13 +242,19 @@ func (d *Daemon) readBody(reader *bufio.Reader, header string) (string, error) {
 }
 
 func (d *Daemon) toggle(contextPrompt string) {
+	d.controlMu.Lock()
+	defer d.controlMu.Unlock()
+	if d.ctx.Err() != nil {
+		return
+	}
 	if d.configMgr.IsLegacy() {
-		d.notifier.Error("Legacy config detected. Run: hyprvoice onboarding")
+		d.sendError("Legacy config detected. Run: hyprvoice onboarding")
 		return
 	}
 	conf := d.configMgr.GetConfig()
 	switch d.status() {
 	case pipeline.Idle:
+		d.stopPipeline()
 		var opts []pipeline.Option
 		if contextPrompt != "" {
 			opts = append(opts, pipeline.WithContextPrompt(contextPrompt))
@@ -232,48 +267,42 @@ func (d *Daemon) toggle(contextPrompt string) {
 		d.contextSession = contextPrompt != ""
 		d.mu.Unlock()
 
-		if contextPrompt != "" {
-			go d.notifier.Send(notify.MsgContextRecordingStarted)
-		} else {
-			go d.notifier.Send(notify.MsgRecordingStarted)
-		}
-		go d.monitorPipelineErrors(p)
-		go d.monitorPipelineNotifications(p)
+		d.monitorWG.Add(2)
+		go func() { defer d.monitorWG.Done(); d.monitorPipelineErrors(p) }()
+		go func() { defer d.monitorWG.Done(); d.monitorPipelineNotifications(p) }()
 
 	case pipeline.Recording:
 		d.stopPipeline()
-		go d.notifier.Send(notify.MsgRecordingAborted)
+		d.sendNotify(notify.MsgRecordingAborted)
 
 	case pipeline.Transcribing:
 		d.mu.RLock()
-		isCtx := d.contextSession
-		if d.pipeline != nil {
-			actionChan := d.pipeline.GetActionCh()
-			log.Printf("Daemon: Sending inject action to pipeline")
-			d.mu.RUnlock()
-			actionChan <- pipeline.Inject
-		} else {
-			d.mu.RUnlock()
-		}
-		if isCtx {
-			go d.notifier.Send(notify.MsgContextTranscribing)
-		} else {
-			go d.notifier.Send(notify.MsgTranscribing)
+		p := d.pipeline
+		d.mu.RUnlock()
+		if p != nil {
+			select {
+			case p.GetActionCh() <- pipeline.Inject:
+				log.Printf("Daemon: Sent inject action to pipeline")
+			default:
+				log.Printf("Daemon: Pipeline already has a pending action")
+			}
 		}
 
-	case pipeline.Injecting:
+	case pipeline.Injecting, pipeline.Processing:
 		d.stopPipeline()
-		go d.notifier.Send(notify.MsgInjectionAborted)
+		d.sendNotify(notify.MsgInjectionAborted)
 	}
 }
 
 func (d *Daemon) cancelPipeline() {
+	d.controlMu.Lock()
+	defer d.controlMu.Unlock()
 	switch d.status() {
 	case pipeline.Idle:
 		log.Printf("Daemon: Cancel requested but pipeline is idle, ignoring")
 	default:
 		d.stopPipeline()
-		go d.notifier.Send(notify.MsgOperationCancelled)
+		d.sendNotify(notify.MsgOperationCancelled)
 	}
 }
 
@@ -281,14 +310,17 @@ func (d *Daemon) monitorPipelineErrors(p pipeline.Pipeline) {
 	errorCh := p.GetErrorCh()
 	for {
 		select {
-		case pipelineErr := <-errorCh:
+		case pipelineErr, ok := <-errorCh:
+			if !ok {
+				return
+			}
 			message := pipelineErr.Message
 
 			if pipelineErr.Err != nil {
 				message = fmt.Sprintf("%s: %v", message, pipelineErr.Err)
 			}
 
-			d.notifier.Error(message)
+			d.sendError(message)
 		case <-d.ctx.Done():
 			return
 		}
@@ -299,8 +331,11 @@ func (d *Daemon) monitorPipelineNotifications(p pipeline.Pipeline) {
 	notifyCh := p.GetNotifyCh()
 	for {
 		select {
-		case mt := <-notifyCh:
-			d.notifier.Send(mt)
+		case mt, ok := <-notifyCh:
+			if !ok {
+				return
+			}
+			d.sendNotify(mt)
 		case <-d.ctx.Done():
 			return
 		}

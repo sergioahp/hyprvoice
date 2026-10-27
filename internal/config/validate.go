@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
+	"github.com/leonardotrapani/hyprvoice/internal/recording"
 )
 
 // mapConfigProviderToRegistryName maps config provider names to provider registry names
@@ -57,6 +58,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Recording.Timeout <= 0 {
 		return fmt.Errorf("invalid recording.timeout: %v", c.Recording.Timeout)
+	}
+	if err := recording.ValidateAudioFormat(c.Recording.SampleRate, c.Recording.Channels, c.Recording.Format); err != nil {
+		return err
 	}
 
 	if c.Transcription.Provider == "" {

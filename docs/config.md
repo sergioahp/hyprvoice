@@ -398,14 +398,21 @@ Audio capture settings:
 
 ```toml
 [recording]
-sample_rate = 16000        # Audio sample rate in Hz (16000 recommended for speech)
-channels = 1               # Number of audio channels (1 = mono, 2 = stereo)
+sample_rate = 16000        # Required audio sample rate in Hz
+channels = 1               # Required channel count (mono)
 format = "s16"             # Audio format (s16 = 16-bit signed integers)
 buffer_size = 8192         # Internal buffer size in bytes (larger = less CPU, more latency)
 device = ""                # PipeWire device name (empty = default microphone)
 channel_buffer_size = 30   # Audio frame buffer size (frames to buffer)
 timeout = "5m"             # Maximum recording duration (e.g., "30s", "2m", "5m")
 ```
+
+Transcription adapters require 16000 Hz, mono, `s16` audio. Other sample rates,
+channel counts, and formats are rejected instead of being mislabeled in uploads.
+The recording notification appears after the microphone delivers its first PCM
+frame. Wait for this notification before speaking; audio spoken before capture
+starts cannot be recovered. Startup times and captured/dropped byte counts are
+logged by the daemon.
 
 ### Recording Timeout
 

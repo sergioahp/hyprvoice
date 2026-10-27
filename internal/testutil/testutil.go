@@ -210,6 +210,7 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 
 	m.mu.Lock()
 	m.stopCh = make(chan struct{})
+	stopCh := m.stopCh
 	m.mu.Unlock()
 
 	m.recording.Store(true)
@@ -225,7 +226,7 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 			select {
 			case <-ctx.Done():
 				return
-			case <-m.stopCh:
+			case <-stopCh:
 				return
 			case frameCh <- frame:
 			}
@@ -234,7 +235,7 @@ func (m *MockRecorder) Start(ctx context.Context) (<-chan recording.AudioFrame, 
 		// keep channel open until stopped
 		select {
 		case <-ctx.Done():
-		case <-m.stopCh:
+		case <-stopCh:
 		}
 	}()
 

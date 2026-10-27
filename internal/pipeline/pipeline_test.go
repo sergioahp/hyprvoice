@@ -510,6 +510,7 @@ func TestPipeline_WithMocks_LLMProcessing(t *testing.T) {
 	p.GetActionCh() <- Inject
 	time.Sleep(100 * time.Millisecond)
 
+	p.Stop()
 	// verify LLM was called with transcription
 	if !mockLLM.ProcessCalled {
 		t.Error("expected LLM.Process to be called")
