@@ -1,0 +1,60 @@
+> Add icons to the title widget; deliver evidence as usual using ~/code/nix/dendritic-nix-config-vm-evidence/ and writing to reports/
+
+icon on the left side to the title, in the same pill as the title
+
+• I’ll trace the title widget and the project’s existing icon conventions, then implement the icon inside the same pill, verify it visually, and place the evidence both in the usual evidence directory and under `reports/`.
+
+• The current title is a bare `Label`, so putting an icon in the same background requires making the pill a container and styling the container instead. I’m also following the active-window data path so the icon can reflect the focused application, rather than being a fixed decorative glyph.
+
+• The UI/data-path change is in place: each title update now carries both window title and Hyprland class, and the pill resolves that class against desktop application metadata, with theme-name and generic fallbacks. I’m at the compile/test pass now; this should catch any GTK type or tuple-shape mistakes before the VM run.
+
+> I didn't realized that I forgot to take you out of the sandbox.
+
+now you are outside of the sandbox and can run commands like before without me manually aproving
+
+continue
+
+• Continuing from the compile pass. The implementation files are intact; I’ll rerun the pinned Nix development toolchain now, then proceed directly into the VM evidence workflow.
+
+• The unit suite is green (58/58), formatting and diff checks pass, and Clippy completes with only the repository’s existing warnings in `dbus.rs`, `pw.rs`, and the pre-existing test-module placement in `widgets.rs`. I’m starting the established NixOS/Hyprland VM check against the dirty local source now; the key artifact will be the real Kitty title pill plus its icon-resolution journal line.
+
+> commit and push as you go
+
+• The VM build is still running. I’ll commit the implementation now and push the current branch as requested; the VM is already evaluating the same source snapshot, so this won’t invalidate the evidence run.
+
+• The source change is committed and pushed as `39450d6`. Since the evidence flake is designed to pin the exact tested revision, I’m switching its input from the temporary local-path override to that pushed commit before the VM itself starts; that keeps the final evidence reproducible from the evidence repository alone.
+
+• Both commits are pushed: the application change on `master` and the evidence flake pin on `vm-evidence-gtk-status-bar`. The pinned release build and its full 63-test package check passed; the NixOS VM has reached the system-image/test phase.
+
+• The VM has now exercised the actual feature: Hyprland reported class `kitty`, the bar logged successful desktop-metadata icon resolution, and the title/focus screenshots were captured with the icon. I’m letting the established regression suite finish so the delivered artifact also proves the rest of the bar stayed healthy.
+
+• The VM regression suite passed end to end in 289.62 seconds. I’ve visually checked the captures: the Kitty icon is rendered on the left inside the blue title pill, and the pill remains the same 25-pixel bar height across long-title and tray states. I’m packaging full screenshots, independent close-ups, the journal, geometry, and a concise report into both requested `reports/` locations now.
+
+• Implemented and pushed.
+
+- Active-window classes now resolve application icons via desktop metadata, theme lookup, then a generic fallback.
+- Icon appears left of the title inside the same pill.
+- Empty-window state hides the icon.
+- 58 unit tests passed; full NixOS/Hyprland VM suite passed in 289.62 seconds.
+- Bar height remained 25 px throughout.
+
+Evidence:
+
+- [Report](/home/admin/code/rust/gtk-status-bar/reports/title-widget-icons_39450d6_2026-07-13/report.md)
+- [Kitty title close-up](/home/admin/code/rust/gtk-status-bar/reports/title-widget-icons_39450d6_2026-07-13/03-kitty-title-closeup.png)
+- [Evidence repository report](/home/admin/code/nix/dendritic-nix-config-vm-evidence/reports/title-widget-icons_39450d6_2026-07-13/report.md)
+
+Pushed commits:
+
+- `39450d6` feature implementation
+- `0530ad6` application-repository evidence
+- `0de732e` evidence flake pin
+- `222b63c` evidence-repository artifacts
+
+The pre-existing untracked `result` remains untouched.
+
+⚠ `[features].collab` is deprecated. Use `[features].multi_agent` instead.
+Enable it with `--enable multi_agent` or `[features].multi_agent` in config.toml. See
+https://developers.openai.com/codex/config-basic#feature-flags for details.
+
+• You have 3 usage limit resets available. Run /usage to use one.

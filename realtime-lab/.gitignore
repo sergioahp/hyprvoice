@@ -1,0 +1,14 @@
+# Existing experiment evidence is tracked; future runs stay local.
+*.log
+*.jsonl
+*.wav
+*.raw
+*.sock
+.tui-bin
+/idea-a-voxtral-stream/idea-a
+/idea-b-mini-poll/idea-b
+/idea-c-vad-segmented/idea-c
+/idea-d-openai-realtime/idea-d
+/idea-e-voxtral-mini-big30s/idea-e
+/visualizer/visualizer
+/voxtral-probe/probe

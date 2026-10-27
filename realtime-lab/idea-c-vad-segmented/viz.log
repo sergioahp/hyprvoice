@@ -1,0 +1,100 @@
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=0.0s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mHyprvoice development environment[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mRun 'go build ./cmd/hyprvoice' to build[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mAvailable commands:[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mgo build ./cmd/hyprvoice  - Build the binary[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mgo test ./...             - Run tests[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mnix flake check           - Run all checks[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90mnix fmt                   - Format code[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90m./hyprvoice serve         - Start daemon[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90m./hyprvoice configure     - Interactive setup[0m
+[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=1.9s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[90m● idle[0m
+[90m(waiting for audio…)[0m
+[90m[t=2.0s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[36m● …[0m
+[90m(waiting for audio…)[0m
+[90m[t=0.0s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[32m● recording[0m
+[90m(waiting for audio…)[0m
+[90m[t=0.0s  first-word=—  commits=0  drafts=0  Δlast=—][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m
+[90m[t=1.6s  first-word=1622ms  commits=0  drafts=1  Δlast=0ms][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m
+[90m[t=2.6s  first-word=1622ms  commits=0  drafts=2  Δlast=0ms][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly...[0m
+[90m[t=3.5s  first-word=1622ms  commits=0  drafts=3  Δlast=0ms][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly[0m [2min[0m [2mfront[0m [2mof[0m [2mme.[0m
+[90m[t=4.4s  first-word=1622ms  commits=0  drafts=4  Δlast=0ms][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly[0m [2min[0m [2mfront[0m [2mof[0m [2mme,[0m [2mit's[0m [2mabout[0m [2ma[0m [2mmeter.[0m
+[90m[t=5.4s  first-word=1622ms  commits=0  drafts=5  Δlast=0ms][0m[3A[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly[0m [2min[0m [2mfront[0m [2mof[0m [2mme,[0m [2mit's[0m [2mabout[0m [2ma[0m [2mmeter[0m [2maway.[0m
+[90m[t=6.5s  first-word=1622ms  commits=0  drafts=6  Δlast=0ms][0m[3A[0J[90msegment committed[0m
+[0J[32m● recording[0m
+[2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly[0m [2min[0m [2mfront[0m [2mof[0m [2mme,[0m [2mit's[0m [2mabout[0m [2ma[0m [2mmeter[0m [2maway.[0m
+[90m[t=6.8s  first-word=1622ms  commits=0  drafts=6  Δlast=263ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. [2mThe[0m [2mcamera[0m [2mis[0m [2mnot[0m [2mdirectly[0m [2min[0m
+[2mfront[0m [2mof[0m [2mme,[0m [2mit's[0m [2mabout[0m [2ma[0m [2mmeter[0m [2maway.[0m
+[90m[t=7.5s  first-word=1622ms  commits=1  drafts=6  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away.
+[90m[t=7.5s  first-word=1622ms  commits=1  drafts=7  Δlast=0ms][0m[3A[0J[90msegment committed[0m
+[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away.
+[90m[t=8.4s  first-word=1622ms  commits=1  drafts=7  Δlast=905ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which
+[90m[t=9.1s  first-word=1622ms  commits=2  drafts=7  Δlast=0ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which
+[90m[t=9.1s  first-word=1622ms  commits=2  drafts=8  Δlast=0ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mEste.[0m
+[90m[t=10.7s  first-word=1622ms  commits=2  drafts=9  Δlast=0ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mIs[0m [2mtotally[0m [2mdoable[0m [2mfor[0m
+[90m[t=11.1s  first-word=1622ms  commits=2  drafts=10  Δlast=0ms][0m[3A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mEste[0m [2mtotalmente[0m [2mdoble[0m [2mpor[0m
+[2m32[0m
+[90m[t=11.5s  first-word=1622ms  commits=2  drafts=11  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mThis[0m [2mtotally[0m [2mdoable[0m [2mfor[0m
+[2mday-to-day.[0m
+[90m[t=12.4s  first-word=1622ms  commits=2  drafts=12  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mis[0m [2mtotally[0m [2mdoable[0m [2mfor[0m
+[2mday-to-day[0m [2muse.[0m
+[90m[t=13.6s  first-word=1622ms  commits=2  drafts=13  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mis[0m [2mtotally[0m [2mdoable[0m [2mfor[0m
+[2mday-to-day[0m [2muse.[0m
+[90m[t=14.7s  first-word=1622ms  commits=2  drafts=14  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which [2mIt[0m [2mis[0m [2mtotally[0m [2mdoable[0m [2mfor[0m
+[2mday-to-day[0m [2muse.[0m
+[90m[t=15.7s  first-word=1622ms  commits=2  drafts=15  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use. [2mIt[0m [2mis[0m [2mtotally[0m [2mdoable[0m [2mfor[0m [2mday-to-day[0m [2muse.[0m
+[90m[t=16.5s  first-word=1622ms  commits=3  drafts=15  Δlast=0ms][0m[4A[0J[32m● recording[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use.
+[90m[t=16.5s  first-word=1622ms  commits=3  drafts=16  Δlast=0ms][0m[4A[0J[90m● idle[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use.
+[90m[t=16.5s  first-word=1622ms  commits=3  drafts=16  Δlast=0ms][0m[4A[0J[36m● transcribing[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use.
+[90m[t=30.2s  first-word=1622ms  commits=3  drafts=16  Δlast=13687ms][0m[4A[0J[32m● done[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use.
+[90m[t=30.2s  first-word=1622ms  commits=3  drafts=16  Δlast=0ms][0m[4A[0J[32m● done[0m
+The camera is not directly in front of me, it's about a meter away. which It's totally doable for
+day-to-day use.
+[90m[t=30.2s  first-word=1622ms  commits=3  drafts=16  Δlast=0ms][0m

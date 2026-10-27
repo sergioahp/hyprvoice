@@ -1,0 +1,36 @@
+{"type":"status","state":"idle"}
+{"type":"info","text":"replay 15.9s from ../sample.wav"}
+{"type":"reset"}
+{"type":"status","state":"recording"}
+{"type":"draft","text":"The"}
+{"type":"draft","text":"The camera"}
+{"type":"draft","text":"The camera is"}
+{"type":"draft","text":"The camera is not"}
+{"type":"draft","text":"The camera is not directly"}
+{"type":"draft","text":"The camera is not directly in"}
+{"type":"draft","text":"The camera is not directly in front"}
+{"type":"draft","text":"The camera is not directly in front of"}
+{"type":"draft","text":"The camera is not directly in front of me"}
+{"type":"draft","text":"The camera is not directly in front of me,"}
+{"type":"draft","text":"The camera is not directly in front of me, it's"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away,"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day use"}
+{"type":"draft","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day use."}
+{"type":"committed","text":"The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day use."}
+{"type":"draft"}
+{"type":"status","state":"transcribing"}
+{"type":"info","text":"batch: gpt-4o-transcribe on 15.9s of audio..."}
+{"type":"final","text":"The camera is not directly in front of me."}
+{"type":"status","state":"idle"}

@@ -1,0 +1,770 @@
+[
+ [
+  "raw",
+  "silence",
+  4,
+  "Hello."
+ ],
+ [
+  "raw",
+  "silence",
+  3,
+  "Great."
+ ],
+ [
+  "raw",
+  "silence",
+  5,
+  "Okay"
+ ],
+ [
+  "raw",
+  "silence",
+  0,
+  "Ok."
+ ],
+ [
+  "raw",
+  "silence",
+  1,
+  "\u05e9\u05dc\u05d5\u05dd."
+ ],
+ [
+  "raw",
+  "silence",
+  2,
+  "Hello."
+ ],
+ [
+  "raw",
+  "silence",
+  6,
+  "Hi!"
+ ],
+ [
+  "raw",
+  "silence",
+  10,
+  "dice."
+ ],
+ [
+  "raw",
+  "silence",
+  9,
+  "Wow!"
+ ],
+ [
+  "raw",
+  "silence",
+  8,
+  "Hi!"
+ ],
+ [
+  "raw",
+  "silence",
+  11,
+  "Hello?"
+ ],
+ [
+  "raw",
+  "silence",
+  12,
+  "test"
+ ],
+ [
+  "raw",
+  "silence",
+  14,
+  "Hello."
+ ],
+ [
+  "raw",
+  "silence",
+  15,
+  "Hello"
+ ],
+ [
+  "raw",
+  "silence",
+  13,
+  "Hello"
+ ],
+ [
+  "raw",
+  "silence",
+  7,
+  "\u0437\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439\u0442\u0435"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  1,
+  "Yes, I think so."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  0,
+  "I love you."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  2,
+  "There may be provided"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  4,
+  "Travailler,"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  3,
+  "The tree was green."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  5,
+  "Can you hear me?"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  6,
+  ""
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  7,
+  "Hello, how are you?"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  10,
+  "Please stop."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  8,
+  "Just a moment."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  9,
+  ""
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  11,
+  ""
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  12,
+  "Soos!"
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  13,
+  "Sprinkle the salt."
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  14,
+  ""
+ ],
+ [
+  "raw",
+  "ask_noisy",
+  15,
+  "There is a sound."
+ ],
+ [
+  "raw",
+  "ask_layout",
+  0,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  2,
+  "Okay, is it me or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  1,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  4,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  3,
+  "Okay, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  5,
+  "OK, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  6,
+  "Okay, is it me or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  7,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  8,
+  "OK, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  10,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  11,
+  "OK, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  9,
+  "OK, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  13,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "reply_short",
+  1,
+  "Yes, do that but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  0,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "ask_layout",
+  14,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  15,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "ask_layout",
+  12,
+  "OK, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "raw",
+  "reply_short",
+  2,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  3,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  4,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  5,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  6,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  10,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  7,
+  "Yes, do that but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  9,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  8,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  11,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  12,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  0,
+  "Thank you."
+ ],
+ [
+  "raw",
+  "reply_short",
+  13,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  15,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "raw",
+  "reply_short",
+  14,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  1,
+  "Hi"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  2,
+  "Hello world."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  4,
+  "Yep."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  3,
+  "Tak\u017ee,"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  5,
+  "Sure."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  6,
+  "Sumatra."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  7,
+  "Yeah."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  11,
+  "Hello?"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  9,
+  "Bisa aja."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  12,
+  "Yes"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  8,
+  "exactly"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  10,
+  "1-1"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  13,
+  "\u0646\u0639\u0645."
+ ],
+ [
+  "silence_rule",
+  "silence",
+  15,
+  "Hello?"
+ ],
+ [
+  "silence_rule",
+  "silence",
+  14,
+  "Yes, it is."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  1,
+  "Yes."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  0,
+  "No hay problema."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  2,
+  "\u0c96\u0cc1\u0cb7\u0cbf?"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  3,
+  ""
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  5,
+  "I'm sorry"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  4,
+  "Justamente,"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  7,
+  "Kto?"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  8,
+  "Thank you."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  6,
+  "Panaderos"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  10,
+  "There are five."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  9,
+  "Sure, let's do it."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  11,
+  "system"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  13,
+  "Hi."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  14,
+  "I love it."
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  15,
+  "Hello, hello."
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  2,
+  "Okay, is it me or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  1,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  0,
+  "Okay, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  3,
+  "OK, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  5,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  4,
+  "Ok, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  7,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  6,
+  "OK, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  8,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_noisy",
+  12,
+  ""
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  10,
+  "Okay, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  9,
+  "OK, is it me or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  11,
+  "Okay, is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  12,
+  "Okay, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  13,
+  "OK. Is it me, or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  15,
+  "Okay, is it me or before the icon change very short titles were centered? Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "ask_layout",
+  14,
+  "Okay, is it me, or before the icon change very short titles were centered. Can you make them centered again with the icon still on the left?"
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  1,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  0,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  3,
+  "Yes do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  2,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  4,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  6,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  7,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  5,
+  "Yes do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  8,
+  "Yes do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  9,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  10,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  11,
+  "Yes do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  12,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  13,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  14,
+  "Yes, do that, but keep the icon on the left."
+ ],
+ [
+  "silence_rule",
+  "reply_short",
+  15,
+  "Yes, do that, but keep the icon on the left."
+ ]
+]

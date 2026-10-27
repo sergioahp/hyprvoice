@@ -1,0 +1,24 @@
+control socket: /home/admin/code/go/hyprvoice/realtime-lab/idea-d-openai-realtime/control.sock
+15:33:34 replay: 15.9s (509898 bytes) from ../sample.wav
+15:33:34 ws: connecting to wss://api.openai.com/v1/realtime?intent=transcription
+15:33:34 ws: session configured (session.update, audio/pcm@24k, gpt-4o-transcribe)
+15:33:34 ws: raw[0]: {"type":"session.created","event_id":"event_DvrQ6DpK2MEYlNKKxoXZc","session":{"type":"transcription","object":"realtime.transcription_session","id":"sess_DvrQ6OboPmemzoAFmtDTB","expires_at":1782686014,"audio":{"input":{"format":{"type":"audio/pcm","rate":24000},"transcription":null,"noise_reduction":null,"turn_detection":{"type":"server_vad","threshold":0.5,"prefix_padding_ms":300,"silence_duratio
+15:33:34 ws: session created id=sess_DvrQ6OboPmemzoAFmtDTB model=
+15:33:34 ws: raw[1]: {"type":"session.updated","event_id":"event_DvrQ69cRukrnLiYYGdGoH","session":{"type":"transcription","object":"realtime.transcription_session","id":"sess_DvrQ6OboPmemzoAFmtDTB","expires_at":1782686014,"audio":{"input":{"format":{"type":"audio/pcm","rate":24000},"transcription":{"model":"gpt-4o-transcribe","language":"en","prompt":null},"noise_reduction":null,"turn_detection":null}},"include":null}
+15:33:34 ws: session updated
+15:33:50 audio source finished
+15:33:53 ws: commit sent, waiting for transcription.completed
+15:33:53 ws: raw[2]: {"type":"input_audio_buffer.committed","event_id":"event_DvrQPicNnlWCSehQ79WWY","previous_item_id":null,"item_id":"item_DvrQ692biASIk5x0Kd2ke"}
+15:33:53 ws: audio committed item=item_DvrQ692biASIk5x0Kd2ke
+15:33:53 ws: raw[3]: {"type":"conversation.item.added","event_id":"event_DvrQPpoqwY1MjFDP7aPUw","previous_item_id":null,"item":{"id":"item_DvrQ692biASIk5x0Kd2ke","type":"message","status":"completed","role":"user","content":[{"type":"input_audio","transcript":null}]}}
+15:33:53 ws: unhandled event: conversation.item.added
+15:33:53 ws: raw[4]: {"type":"conversation.item.done","event_id":"event_DvrQPf4qTL2oOke4GiqHc","previous_item_id":null,"item":{"id":"item_DvrQ692biASIk5x0Kd2ke","type":"message","status":"completed","role":"user","content":[{"type":"input_audio","transcript":null}]}}
+15:33:53 ws: unhandled event: conversation.item.done
+15:33:53 ws: raw[5]: {"type":"conversation.item.input_audio_transcription.delta","event_id":"event_DvrQPtm5KuPurERou0XnU","item_id":"item_DvrQ692biASIk5x0Kd2ke","content_index":0,"delta":"The","obfuscation":"QgjMXWY8IZm9d"}
+15:33:53 ws: raw[6]: {"type":"conversation.item.input_audio_transcription.delta","event_id":"event_DvrQPwN9oxJ41sJLiMByS","item_id":"item_DvrQ692biASIk5x0Kd2ke","content_index":0,"delta":" camera","obfuscation":"8MoJ0FpGB"}
+15:33:53 ws: raw[7]: {"type":"conversation.item.input_audio_transcription.delta","event_id":"event_DvrQPuN7XHau5YxwNoE0w","item_id":"item_DvrQ692biASIk5x0Kd2ke","content_index":0,"delta":" is","obfuscation":"PHZB7L0oIClOI"}
+15:33:54 ws: transcription completed: "The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day use."
+15:33:54 ws: turn finalized
+15:33:54 wire: dumped 764846 bytes (24kHz s16le) to wire_sent_24k.raw
+15:33:55 batch: completed in 1.396285845s: "The camera is not directly in front of me."
+15:33:59 stop: already idle

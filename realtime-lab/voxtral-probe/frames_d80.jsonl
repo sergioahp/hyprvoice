@@ -1,0 +1,8 @@
+{"type":"session.created","session":{"request_id":"ws-019f109b-538b-75b1-9b9a-236cb191cb3b","model":"voxtral-mini-transcribe-realtime-2602","audio_format":{"encoding":"pcm_s16le","sample_rate":16000},"target_streaming_delay_ms":null}}
+{"type":"session.updated","session":{"request_id":"ws-019f109b-538b-75b1-9b9a-236cb191cb3b","model":"voxtral-mini-transcribe-realtime-2602","audio_format":{"encoding":"pcm_s16le","sample_rate":16000},"target_streaming_delay_ms":80}}
+{"type":"transcription.text.delta","text":"To"}
+{"type":"transcription.text.delta","text":" camera"}
+{"type":"transcription.text.delta","text":","}
+{"type":"transcription.text.delta","text":" it"}
+{"type":"transcription.text.delta","text":"'s"}
+{"model":"voxtral-mini-transcribe-realtime-2602","text":"To camera, it's","language":null,"segments":[],"usage":{"prompt_audio_seconds":1,"prompt_tokens":18,"total_tokens":228,"completion_tokens":210},"type":"transcription.done"}

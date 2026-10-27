@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-27T03:08:33.750251-06:00",
+  "trials": [
+    {
+      "trial": 1,
+      "check_ms": 18.24,
+      "spawn_to_first_bytes_ms": 24.53,
+      "total_ms": 42.77,
+      "first_read_bytes": 24,
+      "pipewire_check_exit": 0
+    },
+    {
+      "trial": 2,
+      "check_ms": 16.46,
+      "spawn_to_first_bytes_ms": 25.64,
+      "total_ms": 42.09,
+      "first_read_bytes": 24,
+      "pipewire_check_exit": 0
+    },
+    {
+      "trial": 3,
+      "check_ms": 15.38,
+      "spawn_to_first_bytes_ms": 27.95,
+      "total_ms": 43.33,
+      "first_read_bytes": 24,
+      "pipewire_check_exit": 0
+    },
+    {
+      "trial": 4,
+      "check_ms": 16.21,
+      "spawn_to_first_bytes_ms": 29.63,
+      "total_ms": 45.85,
+      "first_read_bytes": 24,
+      "pipewire_check_exit": 0
+    },
+    {
+      "trial": 5,
+      "check_ms": 22.73,
+      "spawn_to_first_bytes_ms": 32.59,
+      "total_ms": 55.32,
+      "first_read_bytes": 24,
+      "pipewire_check_exit": 0
+    }
+  ]
+}

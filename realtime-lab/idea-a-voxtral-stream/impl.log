@@ -1,0 +1,13 @@
+control socket: /home/admin/code/go/hyprvoice/realtime-lab/idea-a-voxtral-stream/control.sock
+04:30:14 replay: 15.9s (509898 bytes) from ../sample.wav
+04:30:14 voxtral: connecting to wss://api.mistral.ai/v1/audio/transcriptions/realtime?model=voxtral-mini-transcribe-realtime-2602
+04:30:15 voxtral: session configured (model=voxtral-mini-transcribe-realtime-2602, delay=480ms)
+04:30:15 voxtral: session created id=
+04:30:15 voxtral: session updated
+04:30:31 audio source finished
+04:30:36 voxtral: input_audio.end sent, waiting for transcription.done...
+04:30:36 voxtral: done: "The camera is not directly in front of me, it's about a meter away. Which is totally doable for day to day, day to day use."
+04:30:36 voxtral: transcription.done received
+04:30:36 batch: transcribing 15.9s (509898 bytes) with gpt-4o-transcribe
+04:30:37 batch: completed in 615ms: "The camera is not directly in front of me, it's about a meter away."
+04:30:48 stop: already idle

@@ -1,0 +1,23 @@
+[err] control socket: /home/admin/code/go/hyprvoice/realtime-lab/idea-b-mini-poll/control.sock
+[err] replay: 509898 bytes (15.9s) paced at 1x
+[err] poll: skip (inflight)
+[err] poll: draft in 1.164s (0.8s audio): "The camera..."
+[err] poll: draft in 633ms (2.6s audio): "The camera is not there."
+[err] poll: draft in 612ms (3.5s audio): "The camera is not directly in front of me."
+[err] poll: skip (inflight)
+[err] poll: draft in 1.428s (4.4s audio): "The camera is not directly in front of me, it's a..."
+[err] poll: skip (inflight)
+[err] poll: draft in 1.292s (6.2s audio): "The camera is not directly in front of me, it's about a meter away."
+[err] poll: skip (inflight)
+[err] poll: draft in 978ms (8.0s audio): "The camera is not directly in front of me, it's about a meter away, which..."
+[err] poll: skip (inflight)
+[err] poll: draft in 1.025s (8.0s audio): "Directly in front of me is about a meter away, which is totally doable."
+[err] poll: draft in 492ms (8.0s audio): "is about a meter away, which is totally doable for day-to-day."
+[err] poll: skip (inflight)
+[err] poll: draft in 1.117s (8.0s audio): "one kilometer away, which is totally doable for day to day."
+[err] poll: draft in 451ms (8.0s audio): "which is totally doable for day-to-day use."
+[err] poll: draft in 727ms (8.0s audio): "is totally doable for day-to-day use."
+[err] replay: finished feeding all audio
+[err] feed: done — send 'stop' for final transcript
+[err] final: calling gpt-4o-transcribe on 15.9s of audio...
+[err] final: done in 924.664899ms: "The camera is not directly in front of me, it's about a meter away, which is totally doable for day-to-day use"

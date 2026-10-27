@@ -1,0 +1,39 @@
+pcm: 509898 bytes (15.9s @16k)
++   672ms SEND session.update
++   705ms RECV "type":"session.created","session":{"request_id":"ws-019f1099-b23e-75f2-8db2-ab86aef13d37","model":"
++   838ms RECV "type":"session.updated","session":{"request_id":"ws-019f1099-b23e-75f2-8db2-ab86aef13d37","model":"
++  1745ms RECV "type":"transcription.text.delta","text":"The"}
++  2229ms RECV "type":"transcription.text.delta","text":" camera"}
++  3041ms RECV "type":"transcription.text.delta","text":" is"}
++  3541ms RECV "type":"transcription.text.delta","text":" not"}
++  4431ms RECV "type":"transcription.text.delta","text":" directly"}
++  4505ms RECV "type":"transcription.text.delta","text":" in"}
++  4912ms RECV "type":"transcription.text.delta","text":" front"}
++  4992ms RECV "type":"transcription.text.delta","text":" of"}
++  5344ms RECV "type":"transcription.text.delta","text":" me"}
++  5521ms RECV "type":"transcription.text.delta","text":","}
++  5802ms RECV "type":"transcription.text.delta","text":" it"}
++  5883ms RECV "type":"transcription.text.delta","text":"'s"}
++  6126ms RECV "type":"transcription.text.delta","text":" about"}
++  6209ms RECV "type":"transcription.text.delta","text":" a"}
++  6612ms RECV "type":"transcription.text.delta","text":" meter"}
++  7100ms RECV "type":"transcription.text.delta","text":" away"}
++  7180ms RECV "type":"transcription.text.delta","text":"."}
++  9046ms RECV "type":"transcription.text.delta","text":" Which"}
++ 10748ms RECV "type":"transcription.text.delta","text":" is"}
++ 11318ms RECV "type":"transcription.text.delta","text":" totally"}
++ 11804ms RECV "type":"transcription.text.delta","text":" do"}
++ 11885ms RECV "type":"transcription.text.delta","text":"able"}
++ 11968ms RECV "type":"transcription.text.delta","text":" for"}
++ 12290ms RECV "type":"transcription.text.delta","text":" day"}
++ 12374ms RECV "type":"transcription.text.delta","text":" to"}
++ 12944ms RECV "type":"transcription.text.delta","text":" day"}
++ 12955ms RECV "type":"transcription.text.delta","text":","}
++ 13347ms RECV "type":"transcription.text.delta","text":" day"}
++ 13588ms RECV "type":"transcription.text.delta","text":" to"}
++ 13833ms RECV "type":"transcription.text.delta","text":" day"}
++ 14724ms RECV "type":"transcription.text.delta","text":" use"}
++ 14807ms RECV "type":"transcription.text.delta","text":"."}
++ 16838ms SEND input_audio.end
++ 17166ms RECV "type":"transcription.done"}
++ 19303ms RECV closed: failed to get reader: failed to read frame header: EOF

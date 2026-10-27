@@ -1,0 +1,670 @@
+ ▐▛███▜▌   Claude Code v2.1.123
+▝▜█████▛▘  Sonnet 4.6 · Claude Pro
+  ▘▘ ▝▝    ~/code/go/hyprvoice
+
+❯ /clear                                                                        
+  ⎿  (no content)
+
+❯ we got these instructions:                                                    
+  Here is a minimal **Python microphone → WebSocket → streaming transcript      
+  deltas** example for `gpt-realtime-whisper`.                                  
+                                                                                
+  OpenAI’s realtime transcription docs say this path is for live                
+  speech-to-text, uses a session with `type: "transcription"`, and recommends   
+  `gpt-realtime-whisper` for the lowest-latency streaming transcription path.   
+  Audio is sent via `input_audio_buffer.append`, and you receive                
+  `conversation.item.input_audio_transcription.delta` plus final `completed`    
+  events. ([OpenAI Developers][1])                                              
+                                                                                
+  ```bash                                                                       
+  pip install websocket-client sounddevice numpy                                
+  export OPENAI_API_KEY="sk-..."                                                
+  python realtime_whisper_mic.py                                                
+  ```                                                                           
+                                                                                
+  ```python                                                                     
+  # realtime_whisper_mic.py                                                     
+  import os                                                                     
+  import json                                                                   
+  import base64                                                                 
+  import queue                                                                  
+  import signal                                                                 
+  import sys                                                                    
+                                                                                
+  import numpy as np                                                            
+  import sounddevice as sd                                                      
+  import websocket                                                              
+                                                                                
+                                                                                
+  OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]                                 
+                                                                                
+  # OpenAI docs recommend 24 kHz mono PCM for audio/pcm input.                  
+  SAMPLE_RATE = 24_000                                                          
+  CHANNELS = 1                                                                  
+  CHUNK_MS = 100                                                                
+  FRAMES_PER_CHUNK = int(SAMPLE_RATE * CHUNK_MS / 1000)                         
+                                                                                
+  audio_q: queue.Queue[bytes] = queue.Queue()                                   
+  running = True                                                                
+                                                                                
+                                                                                
+  def audio_callback(indata, frames, time, status):                             
+      if status:                                                                
+          print(status, file=sys.stderr)                                        
+                                                                                
+      # sounddevice gives float32 by default in [-1.0, 1.0].                    
+      pcm16 = np.clip(indata[:, 0], -1.0, 1.0)                                  
+      pcm16 = (pcm16 * 32767).astype(np.int16)                                  
+      audio_q.put(pcm16.tobytes())                                              
+                                                                                
+                                                                                
+  def on_open(ws):                                                              
+      print("Connected. Start speaking. Ctrl+C to stop.")                       
+                                                                                
+      # Configure this as a transcription-only realtime session.                
+      ws.send(json.dumps({                                                      
+          "type": "session.update",                                             
+          "session": {                                                          
+              "type": "transcription",                                          
+              "audio": {                                                        
+                  "input": {                                                    
+                      "format": {                                               
+                          "type": "audio/pcm",                                  
+                          "rate": SAMPLE_RATE                                   
+                      },                                                        
+                      "transcription": {                                        
+                          "model": "gpt-realtime-whisper",                      
+                          "language": "en"                                      
+                      },                                                        
+                      "turn_detection": {                                       
+                          "type": "server_vad",                                 
+                          "threshold": 0.5,                                     
+                          "prefix_padding_ms": 300,                             
+                          "silence_duration_ms": 500                            
+                      }                                                         
+                  }                                                             
+              }                                                                 
+          }                                                                     
+      }))                                                                       
+                                                                                
+      def stream_audio():                                                       
+          with sd.InputStream(                                                  
+              samplerate=SAMPLE_RATE,                                           
+              channels=CHANNELS,                                                
+              dtype="float32",                                                  
+              blocksize=FRAMES_PER_CHUNK,                                       
+              callback=audio_callback,                                          
+          ):                                                                    
+              while running:                                                    
+                  chunk = audio_q.get()                                         
+                  b64 = base64.b64encode(chunk).decode("ascii")                 
+                                                                                
+                  ws.send(json.dumps({                                          
+                      "type": "input_audio_buffer.append",                      
+                      "audio": b64                                              
+                  }))                                                           
+                                                                                
+      import threading                                                          
+      threading.Thread(target=stream_audio, daemon=True).start()                
+                                                                                
+                                                                                
+  def on_message(ws, message):                                                  
+      event = json.loads(message)                                               
+                                                                                
+      t = event.get("type")                                                     
+                                                                                
+      if t == "conversation.item.input_audio_transcription.delta":              
+          print(event.get("delta", ""), end="", flush=True)                     
+                                                                                
+      elif t == "conversation.item.input_audio_transcription.completed":        
+          print("\n\nFinal:", event.get("transcript", ""))                      
+                                                                                
+      elif t == "error":                                                        
+          print("\nERROR:", json.dumps(event, indent=2), file=sys.stderr)       
+                                                                                
+                                                                                
+  def on_error(ws, error):                                                      
+      print("WebSocket error:", error, file=sys.stderr)                         
+                                                                                
+                                                                                
+  def on_close(ws, close_status_code, close_msg):                               
+      print("\nClosed:", close_status_code, close_msg)                          
+                                                                                
+                                                                                
+  def handle_sigint(sig, frame):                                                
+      global running                                                            
+      running = False                                                           
+      print("\nStopping...")                                                    
+      sys.exit(0)                                                               
+                                                                                
+                                                                                
+  signal.signal(signal.SIGINT, handle_sigint)                                   
+                                                                                
+  url = "wss://api.openai.com/v1/realtime?model=gpt-realtime-whisper"           
+  headers = [                                                                   
+      f"Authorization: Bearer {OPENAI_API_KEY}",                                
+      "OpenAI-Safety-Identifier: dev-local-test-user",                          
+  ]                                                                             
+                                                                                
+  ws = websocket.WebSocketApp(                                                  
+      url,                                                                      
+      header=headers,                                                           
+      on_open=on_open,                                                          
+      on_message=on_message,                                                    
+      on_error=on_error,                                                        
+      on_close=on_close,                                                        
+  )                                                                             
+                                                                                
+  ws.run_forever()                                                              
+  ```                                                                           
+                                                                                
+  A few common gotchas:                                                         
+                                                                                
+  The endpoint is a **Realtime WebSocket**, not `/v1/audio/transcriptions`. The 
+   WebSocket guide shows server-side connections using                          
+  `wss://api.openai.com/v1/realtime?...` with the `Authorization: Bearer ...`   
+  header. ([OpenAI Developers][2])                                              
+                                                                                
+  For this model, use a **transcription session** and set:                      
+                                                                                
+  ```json                                                                       
+  {                                                                             
+    "session": {                                                                
+      "type": "transcription",                                                  
+      "audio": {                                                                
+        "input": {                                                              
+          "transcription": {                                                    
+            "model": "gpt-realtime-whisper"                                     
+          }                                                                     
+        }                                                                       
+      }                                                                         
+    }                                                                           
+  }                                                                             
+  ```                                                                           
+                                                                                
+  Do not use the older assistant-style realtime session shape unless you        
+  actually want a voice agent. OpenAI’s docs distinguish realtime transcription 
+   from realtime assistant responses. ([OpenAI Developers][1])                  
+                                                                                
+  Audio format matters. The docs specify `audio/pcm` at **24 kHz mono PCM**     
+  when sending that format, and chunks must be Base64 encoded in                
+  `input_audio_buffer.append`. ([OpenAI Developers][1])                         
+                                                                                
+  With `server_vad`, you do **not** manually call `input_audio_buffer.commit`;  
+  the server commits when it detects a turn boundary. If you set                
+  `turn_detection: null`, then you must send `input_audio_buffer.commit`        
+  yourself. ([OpenAI Developers][1])                                            
+                                                                                
+  [1]: https://developers.openai.com/api/docs/guides/realtime-transcription     
+  "Realtime transcription | OpenAI API"                                         
+  [2]: https://developers.openai.com/api/docs/guides/realtime-websocket         
+  "Realtime API with WebSocket | OpenAI API"                                    
+                                                                                
+                                                                                
+                                                                                
+  you where testing with @test_realtime.py                                      
+                                                                                
+  continue till a sucessfull test, you can do tts for                           
+  a new fresh sample to test with if needed                                     
+  openai key available, tier 3                                                  
+  ⎿  Read test_realtime.py (124 lines)
+
+● Let me check the project structure and see what test data exists.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● Bash(ls /home/admin/code/go/hyprvoice/testdata/ && file
+      /home/admin/code/go/hyprvoice/sample.wav 2>/dev/null; python3 -c "import
+      wave; w=wave.open('/home/admin/code/…)
+  ⎿  sample.wav
+     /home/admin/code/go/hyprvoice/sample.wav: cannot open `/home/admin/cod
+     e/go/hyprvoice/sample.wav' (No such file or directory)
+     no sample.wav info
+
+● Bash(python3 -c "import wave;
+      w=wave.open('/home/admin/code/go/hyprvoice/testdata/sample.wav');
+      print(f'channels={w.getnchannels()}, rate={w.getframerate()}, width={…)
+  ⎿  channels=1, rate=16000, width=2, frames=46797
+
+● Good, testdata/sample.wav exists and is 16-bit mono at 16kHz. Let me check if
+  dependencies are available and try a run to see what error we get.
+
+● Bash(python3 -c "import websocket; print('websocket-client ok')" 2>&1)
+  ⎿  websocket-client ok
+
+● Bash(timeout 30 python3 test_realtime.py testdata/sample.wav 2>&1 || true)
+  ⎿  (No output)
+
+● Bash(echo "key set: $([ -n "$OPENAI_API_KEY" ] && echo yes || echo no)")
+  ⎿  key set: yes
+
+● Bash(timeout 30 python3 test_realtime.py testdata/sample.wav 2>&1; echo "exit:
+       $?")
+  ⎿  exit: 124
+
+● Bash(timeout 30 python3 test_realtime.py testdata/sample.wav 2>&1; echo "exit:
+       $?")
+  ⎿  exit: 124
+
+● Bash(timeout 30 python3 test_realtime.py testdata/sample.wav; echo "exit: $?")
+  ⎿  exit: 124
+
+● Bash(python3 -c "
+      import sys…)
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     loaded ok, bytes: 140390
+
+● Output buffering is likely swallowing prints from the killed process. Let me
+  run with unbuffered output.
+
+● Bash(timeout 30 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, streaming audio...
+     … +4 lines (ctrl+o to expand)
+
+● The session isn't configured as a transcription session, so the server returns
+   item events but no transcription events. I need to add a session.update call
+  and restructure the on_open flow to wait for session.updated before streaming.
+
+  Read 1 file (ctrl+o to expand)
+● Write(test_realtime.py)
+  ⎿  Added 26 lines, removed 5 lines
+      12  import os
+      13  import struct
+      14  import sys
+      15 +import threading                                               
+      16  import time
+      17  import wave
+      18  
+      19  import websocket
+      20  
+      21 +                                                               
+      22  MODEL = "gpt-realtime-whisper"
+      23  SAMPLE_RATE = 24_000
+      24  CHUNK_MS = 100
+     ...
+      61      audio = load_wav(wav_path)
+      62  
+      63      done = False
+      64 +    session_ready = threading.Event()                          
+      65  
+      63 -    def on_open(ws):                                           
+      64 -        print("connected, streaming audio...")                 
+      66 +    def stream_audio():                                        
+      67 +        session_ready.wait(timeout=10)                         
+      68 +        print("session ready, streaming audio...")             
+      69          chunk_bytes = SAMPLE_RATE * 2 * CHUNK_MS // 1000
+      70          offset = 0
+      71          while offset < len(audio):
+     ...
+       80          print("audio sent, committing...")
+       81          ws.send(json.dumps({"type": "input_audio_buffer.commit
+           "}))
+       82  
+       83 +    def on_open(ws):                                          
+       84 +        print("connected, configuring transcription session...
+          +")                                                            
+       85 +        ws.send(json.dumps({                                  
+       86 +            "type": "session.update",                         
+       87 +            "session": {                                      
+       88 +                "type": "transcription",                      
+       89 +                "input_audio_transcription": {                
+       90 +                    "model": "gpt-realtime-whisper",          
+       91 +                },                                            
+       92 +                "turn_detection": None,                       
+       93 +            },                                                
+       94 +        }))                                                   
+       95 +        threading.Thread(target=stream_audio, daemon=True).sta
+          +rt()                                                          
+       96 +                                                              
+       97      def on_message(ws, raw):
+       98          nonlocal done
+       99          ev = json.loads(raw)
+      100          t = ev.get("type", "")
+      101  
+       84 -        if t == "conversation.item.input_audio_transcription.d
+          -elta":                                                        
+      102 +        if t == "session.updated":                            
+      103 +            session_ready.set()                               
+      104 +        elif t == "conversation.item.input_audio_transcription
+          +.delta":                                                      
+      105              print(ev.get("delta", ""), end="", flush=True)
+      106          elif t == "conversation.item.input_audio_transcription
+           .completed":
+      107              print(f"\n\nFINAL: {ev.get('transcript', '')!r}")
+     ...
+      111              print(f"\nERROR: {json.dumps(ev, indent=2)}", file
+           =sys.stderr)
+      112              done = True
+      113              ws.close()
+       94 -        elif t not in ("rate_limits.updated", "session.created
+          -", "session.updated",                                         
+      114 +        elif t not in ("rate_limits.updated", "session.created
+          +",                                                            
+      115                         "input_audio_buffer.speech_started", "i
+           nput_audio_buffer.speech_stopped",
+       96 -                       "input_audio_buffer.committed", "conver
+          -sation.item.created"):                                        
+      116 +                       "input_audio_buffer.committed", "conver
+          +sation.item.created",                                         
+      117 +                       "conversation.item.added", "conversatio
+          +n.item.done"):                                                
+      118              print(f"[{t}]")
+      119  
+      120      def on_error(ws, err):
+
+● Bash(timeout 45 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, configuring transcription session...
+     … +15 lines (ctrl+o to expand)
+
+● The session schema for transcription type differs from assistant mode. Let me
+  try the nested audio.input structure from the instructions.
+
+● Update(test_realtime.py)
+  ⎿  Added 1 line, removed 3 lines
+      86              "type": "session.update",
+      87              "session": {
+      88                  "type": "transcription",
+      89 -                "input_audio_transcription": {                 
+      90 -                    "model": "gpt-realtime-whisper",           
+      91 -                },                                             
+      89 +                "input_audio_format": "pcm16",                 
+      90                  "turn_detection": None,
+      91              },
+      92          }))
+
+● Bash(timeout 45 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, configuring transcription session...
+     … +14 lines (ctrl+o to expand)
+
+● Let me try the minimal session.update and let the server tell us what it
+  accepts.
+
+● Update(test_realtime.py)
+  ⎿  Removed 1 line
+      86              "type": "session.update",
+      87              "session": {
+      88                  "type": "transcription",
+      89 -                "input_audio_format": "pcm16",                 
+      89                  "turn_detection": None,
+      90              },
+      91          }))
+
+● Bash(timeout 45 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, configuring transcription session...
+     … +14 lines (ctrl+o to expand)
+
+● Update(test_realtime.py)
+  ⎿  Removed 1 line
+      86              "type": "session.update",
+      87              "session": {
+      88                  "type": "transcription",
+      89 -                "turn_detection": None,                        
+      89              },
+      90          }))
+      91          threading.Thread(target=stream_audio, daemon=True).star
+          t()
+
+● Bash(timeout 45 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, configuring transcription session...
+     … +15 lines (ctrl+o to expand)
+
+● The model URL itself creates a transcription session - session.update with
+  type: "transcription" is rejected because the session already is one. Let me
+  revert to no session.update and print all events in full to see what the
+  server actually returns.
+
+● Update(test_realtime.py)
+  ⎿  Added 1 line, removed 7 lines
+      81          ws.send(json.dumps({"type": "input_audio_buffer.commit"
+          }))
+      82  
+      83      def on_open(ws):
+      84 -        print("connected, configuring transcription session..."
+         -)                                                              
+      85 -        ws.send(json.dumps({                                   
+      86 -            "type": "session.update",                          
+      87 -            "session": {                                       
+      88 -                "type": "transcription",                       
+      89 -            },                                                 
+      90 -        }))                                                    
+      84 +        print("connected, streaming audio...")                 
+      85          threading.Thread(target=stream_audio, daemon=True).star
+          t()
+      86  
+      87      def on_message(ws, raw):
+
+● Update(test_realtime.py)
+  ⎿  Added 2 lines, removed 5 lines
+      101              print(f"\nERROR: {json.dumps(ev, indent=2)}", file
+           =sys.stderr)
+      102              done = True
+      103              ws.close()
+      104 -        elif t not in ("rate_limits.updated", "session.created
+          -",                                                            
+      105 -                       "input_audio_buffer.speech_started", "i
+          -nput_audio_buffer.speech_stopped",                            
+      106 -                       "input_audio_buffer.committed", "conver
+          -sation.item.created",                                         
+      107 -                       "conversation.item.added", "conversatio
+          -n.item.done"):                                                
+      108 -            print(f"[{t}]")                                   
+      104 +        else:                                                 
+      105 +            print(f"[{t}] {json.dumps(ev)}")                  
+      106  
+      107      def on_error(ws, err):
+      108          print(f"websocket error: {err}", file=sys.stderr)
+
+● Also remove the unused session_ready event since we no longer use it:
+
+● Update(test_realtime.py)
+  ⎿  Added 1 line, removed 3 lines
+      61      audio = load_wav(wav_path)
+      62  
+      63      done = False
+      64 -    session_ready = threading.Event()                          
+      64  
+      65      def stream_audio():
+      67 -        session_ready.wait(timeout=10)                         
+      68 -        print("session ready, streaming audio...")             
+      66 +        print("streaming audio...")                            
+      67          chunk_bytes = SAMPLE_RATE * 2 * CHUNK_MS // 1000
+      68          offset = 0
+      69          while offset < len(audio):
+
+● Bash(timeout 60 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, streaming audio...
+     … +33 lines (ctrl+o to expand)
+
+● The session is type "realtime" (not transcription), and
+  audio.input.transcription is null by default — that's why we get no transcript
+   events. I need to enable it via session.update using the nested audio.input
+  path.
+
+● Update(test_realtime.py)
+  ⎿  Added 13 lines, removed 1 line
+      79          ws.send(json.dumps({"type": "input_audio_buffer.commit"
+          }))
+      80  
+      81      def on_open(ws):
+      82 -        print("connected, streaming audio...")                 
+      82 +        print("connected, enabling transcription...")          
+      83 +        ws.send(json.dumps({                                   
+      84 +            "type": "session.update",                          
+      85 +            "session": {                                       
+      86 +                "audio": {                                     
+      87 +                    "input": {                                 
+      88 +                        "transcription": {                     
+      89 +                            "model": "gpt-realtime-whisper",   
+      90 +                        },                                     
+      91 +                    },                                         
+      92 +                },                                             
+      93 +            },                                                 
+      94 +        }))                                                    
+      95          threading.Thread(target=stream_audio, daemon=True).star
+          t()
+      96  
+      97      def on_message(ws, raw):
+
+● Bash(timeout 60 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, enabling transcription...
+     … +23 lines (ctrl+o to expand)
+
+● session.type is required in the update. Since the session is "realtime", I
+  need to include "type": "realtime" to keep it while enabling transcription.
+● Update(test_realtime.py)
+  ⎿  Added 1 line
+      83          ws.send(json.dumps({
+      84              "type": "session.update",
+      85              "session": {
+      86 +                "type": "realtime",                            
+      87                  "audio": {
+      88                      "input": {
+      89                          "transcription": {
+
+● Bash(timeout 60 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, enabling transcription...
+     … +35 lines (ctrl+o to expand)
+
+● It worked! Got 'She had a dark suit and greasy washwater all year.' There's a
+  stale session_ready reference causing a minor error. Let me clean up the
+  script to a proper final state.
+
+  Read 1 file (ctrl+o to expand)
+
+● Write(test_realtime.py)
+  ⎿  Added 17 lines, removed 5 lines
+       5      OPENAI_API_KEY=sk-... python3 test_realtime.py [audio.wav]
+       6  
+       7  WAV must be 16-bit PCM mono (any rate; resampled to 24kHz on th
+          e fly).
+       8 +                                                               
+       9 +Key finding: the session is type "realtime" (not "transcription
+         +") even with                                                   
+      10 +gpt-realtime-whisper. Transcription must be explicitly enabled 
+         +via session.update                                             
+      11 +with audio.input.transcription set — it is null by default.    
+      12  """
+      13  
+      14  import base64
+     ...
+      28  CHUNK_MS = 100
+      29  URL = f"wss://api.openai.com/v1/realtime?model={MODEL}"
+      30  
+      31 +QUIET_EVENTS = {                                               
+      32 +    "rate_limits.updated", "session.created", "session.updated"
+         +,                                                              
+      33 +    "input_audio_buffer.speech_started", "input_audio_buffer.sp
+         +eech_stopped",                                                 
+      34 +    "input_audio_buffer.committed", "conversation.item.created"
+         +,                                                              
+      35 +    "conversation.item.added", "conversation.item.done",       
+      36 +    "response.created", "response.done",                       
+      37 +}                                                              
+      38  
+      39 +                                                               
+      40  def resample(pcm16: bytes, src_rate: int) -> bytes:
+      41      if src_rate == SAMPLE_RATE:
+      42          return pcm16
+     ...
+      92  
+      93      def on_open(ws):
+      94          print("connected, enabling transcription...")
+      95 +        # Transcription is null by default even with gpt-realti
+         +me-whisper;                                                    
+      96 +        # must be explicitly enabled here.                     
+      97          ws.send(json.dumps({
+      98              "type": "session.update",
+      99              "session": {
+     ...
+      114          ev = json.loads(raw)
+      115          t = ev.get("type", "")
+      116  
+      103 -        if t == "session.updated":                            
+      104 -            session_ready.set()                               
+      105 -        elif t == "conversation.item.input_audio_transcription
+          -.delta":                                                      
+      117 +        if t == "conversation.item.input_audio_transcription.d
+          +elta":                                                        
+      118              print(ev.get("delta", ""), end="", flush=True)
+      119          elif t == "conversation.item.input_audio_transcription
+           .completed":
+      120              print(f"\n\nFINAL: {ev.get('transcript', '')!r}")
+     ...
+      124              print(f"\nERROR: {json.dumps(ev, indent=2)}", file
+           =sys.stderr)
+      125              done = True
+      126              ws.close()
+      115 -        else:                                                 
+      116 -            print(f"[{t}] {json.dumps(ev)}")                  
+      127 +        elif t not in QUIET_EVENTS:                           
+      128 +            print(f"[{t}]")                                   
+      129  
+      130      def on_error(ws, err):
+      131          print(f"websocket error: {err}", file=sys.stderr)
+
+● Bash(timeout 60 python3 -u test_realtime.py testdata/sample.wav 2>&1; echo
+      "exit: $?")
+  ⎿  loaded testdata/sample.wav: 46797 samples @16000Hz -> resampling to 24
+     000Hz
+     connected, enabling transcription...
+     … +7 lines (ctrl+o to expand)
+
+● Clean success. The key fix was that gpt-realtime-whisper creates a "realtime"
+  session with audio.input.transcription: null by default — transcription must
+  be explicitly enabled via session.update with type: "realtime" and the nested
+  audio.input.transcription field.
+
+  The test now:
+  1. Connects, sends session.update to enable transcription
+  2. Streams the WAV in 100ms chunks, then commits
+  3. Prints streaming deltas inline, then the final transcript on completion
+  4. Exits cleanly with exit code 0
+
+✻ Churned for 7m 52s
+
+❯ create a new (different) brach for realtime transcriptions, commit the script 
+   in it                                                                        
+
+● Bash(git checkout -b feature/realtime-transcription && git status)
+  ⎿  Switched to a new branch 'feature/realtime-transcription'
+     On branch feature/realtime-transcription
+     Untracked files:
+     … +6 lines (ctrl+o to expand)
+
+● Bash(git add test_realtime.py && git commit -m "$(cat <<'EOF'
+      Add WAV-file smoke-test for gpt-realtime-whisper transcription…)
+  ⎿  [feature/realtime-transcription 0d06c7a] Add WAV-file smoke-test for g
+     pt-realtime-whisper transcription
+      1 file changed, 154 insertions(+)
+      create mode 100644 test_realtime.py
+
+● Done. New branch feature/realtime-transcription with the script committed. The
+   __pycache__/ dir was left out (untracked, no .gitignore entry needed since
+  it's already in the global .gitignore presumably).
+
+✻ Brewed for 9s

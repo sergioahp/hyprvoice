@@ -1,0 +1,74 @@
+pcm: 509898 bytes (15.9s @16k)
++   647ms SEND session.update
++   647ms SEND input_audio.flush
++   709ms RECV "type":"session.created","session":{"request_id":"ws-019f109d-041e-77b9-9746-924296abfc9d","model":"
++   812ms RECV "type":"session.updated","session":{"request_id":"ws-019f109d-041e-77b9-9746-924296abfc9d","model":"
++   967ms RECV "type":"transcription.done"}
++  1458ms SEND input_audio.flush
++  1640ms RECV "type":"transcription.text.delta","text":"The"}
++  1721ms RECV "type":"transcription.text.delta","text":" camera"}
++  1731ms RECV "type":"transcription.text.delta","text":"."}
++  1802ms RECV "type":"transcription.done"}
++  2270ms SEND input_audio.flush
++  2509ms RECV "type":"transcription.text.delta","text":"It"}
++  2517ms RECV "type":"transcription.text.delta","text":"'s"}
++  2604ms RECV "type":"transcription.done"}
++  3083ms SEND input_audio.flush
++  3511ms RECV "type":"transcription.done"}
++  3895ms SEND input_audio.flush
++  4081ms RECV "type":"transcription.text.delta","text":"There"}
++  4190ms RECV "type":"transcription.text.delta","text":" I"}
++  4194ms RECV "type":"transcription.text.delta","text":" came"}
++  4194ms RECV "type":"transcription.text.delta","text":" from"}
++  4237ms RECV "type":"transcription.done"}
++  4707ms SEND input_audio.flush
++  5041ms RECV "type":"transcription.done"}
++  5519ms SEND input_audio.flush
++  5719ms RECV "type":"transcription.text.delta","text":"It"}
++  5734ms RECV "type":"transcription.text.delta","text":"'s"}
++  5774ms RECV "type":"transcription.text.delta","text":" about"}
++  5814ms RECV "type":"transcription.text.delta","text":" them"}
++  5822ms RECV "type":"transcription.text.delta","text":"."}
++  5881ms RECV "type":"transcription.done"}
++  6332ms SEND input_audio.flush
++  6673ms RECV "type":"transcription.done"}
++  7143ms SEND input_audio.flush
++  7550ms RECV "type":"transcription.done"}
++  7954ms SEND input_audio.flush
++  8285ms RECV "type":"transcription.done"}
++  8765ms SEND input_audio.flush
++  9089ms RECV "type":"transcription.done"}
++  9577ms SEND input_audio.flush
++  9909ms RECV "type":"transcription.done"}
++ 10389ms SEND input_audio.flush
++ 10727ms RECV "type":"transcription.done"}
++ 11199ms SEND input_audio.flush
++ 11531ms RECV "type":"transcription.done"}
++ 12010ms SEND input_audio.flush
++ 12125ms RECV "type":"transcription.text.delta","text":"Good"}
++ 12199ms RECV "type":"transcription.text.delta","text":" day"}
++ 12224ms RECV "type":"transcription.text.delta","text":" to"}
++ 12272ms RECV "type":"transcription.text.delta","text":" you"}
++ 12287ms RECV "type":"transcription.text.delta","text":"."}
++ 12354ms RECV "type":"transcription.done"}
++ 12824ms SEND input_audio.flush
++ 13044ms RECV "type":"transcription.text.delta","text":"Day"}
++ 13052ms RECV "type":"transcription.text.delta","text":" to"}
++ 13093ms RECV "type":"transcription.text.delta","text":" day"}
++ 13102ms RECV "type":"transcription.text.delta","text":"."}
++ 13160ms RECV "type":"transcription.done"}
++ 13636ms SEND input_audio.flush
++ 13821ms RECV "type":"transcription.text.delta","text":"Hey"}
++ 13832ms RECV "type":"transcription.text.delta","text":","}
++ 13901ms RECV "type":"transcription.text.delta","text":" yo"}
++ 13909ms RECV "type":"transcription.text.delta","text":"."}
++ 13967ms RECV "type":"transcription.done"}
++ 14448ms SEND input_audio.flush
++ 14793ms RECV "type":"transcription.done"}
++ 15258ms SEND input_audio.flush
++ 15591ms RECV "type":"transcription.done"}
++ 16069ms SEND input_audio.flush
++ 16392ms RECV "type":"transcription.done"}
++ 16819ms SEND input_audio.end
++ 17228ms RECV "type":"transcription.done"}
++ 19312ms RECV closed: failed to get reader: failed to read frame header: EOF

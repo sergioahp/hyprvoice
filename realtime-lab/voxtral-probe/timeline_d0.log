@@ -1,0 +1,7 @@
+pcm: 509898 bytes (15.9s @16k)
++   624ms SEND session.update
++   669ms RECV "type":"session.created","session":{"request_id":"ws-019f109a-a0cf-71ad-8d36-7902904b52fd","model":"
++   790ms RECV "type":"session.updated","session":{"request_id":"ws-019f109a-a0cf-71ad-8d36-7902904b52fd","model":"
++   796ms RECV "type":"error","error":{"message":"target_streaming_delay_ms must match one of the allowed ranges: 8
++  1809ms RECV closed: failed to get reader: received close frame: status = StatusInternalError and reason = "Upstream connection error"
++ 16735ms SEND input_audio.end

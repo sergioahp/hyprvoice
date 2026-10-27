@@ -1,0 +1,41 @@
+warning: Git tree '/home/admin/code/go/hyprvoice' has uncommitted changes
+control socket: /home/admin/code/go/hyprvoice/realtime-lab/idea-c-vad-segmented/control.sock
+VAD knobs: rms_threshold=0.015 min_silence=600ms draft_poll=1s
+04:23:29.724595 replay: 15.9s audio, pacing at 1x realtime
+04:23:29.825361 VAD: speech start  rms=0.0158
+04:23:31.345155 draft (0.9s, 621ms): "The camera"
+04:23:32.348092 draft (1.9s, 624ms): "The camera is not"
+04:23:33.185469 draft (2.9s, 461ms): "The camera is not directly..."
+04:23:34.118081 draft (3.8s, 394ms): "The camera is not directly in front of me."
+04:23:35.154918 draft (4.9s, 430ms): "The camera is not directly in front of me, it's about a meter."
+04:23:36.262302 draft (5.5s, 539ms): "The camera is not directly in front of me, it's about a meter away."
+04:23:36.525533 VAD: silence >= 600ms → close segment
+04:23:36.525630 VAD: segment closed (silence, 6.80s → strong queue)
+04:23:36.525741 strong: calling gpt-4o-transcribe on 6.80s segment
+04:23:36.924780 VAD: speech start  rms=0.0271
+04:23:37.220080 strong: done in 694ms (6.80s audio): "The camera is not directly in front of me, it's about a meter away."
+04:23:38.125123 VAD: silence >= 600ms → close segment
+04:23:38.125181 VAD: segment closed (silence, 1.30s → strong queue)
+04:23:38.125260 strong: rate-limit sleep 95ms
+04:23:38.220526 strong: calling gpt-4o-transcribe on 1.30s segment
+04:23:38.625235 VAD: speech start  rms=0.0645
+04:23:38.865151 strong: done in 645ms (1.30s audio): "which"
+04:23:39.010629 draft (0.5s, 1.287s): "Which..."
+04:23:39.010679 draft: stale — segment boundary crossed during API call, discarding
+04:23:40.426941 draft (0.4s, 1.416s): "Este."
+04:23:40.829811 draft (1.9s, 403ms): "Is totally doable for"
+04:23:41.179497 draft (2.3s, 349ms): "Este totalmente doble por 32"
+04:23:42.145155 draft (3.1s, 421ms): "This totally doable for day-to-day."
+04:23:43.322466 draft (4.1s, 599ms): "is totally doable for day-to-day use."
+04:23:44.450070 draft (5.1s, 726ms): "is totally doable for day-to-day use."
+04:23:45.441232 draft (5.9s, 718ms): "It is totally doable for day-to-day use."
+04:23:45.724832 replay: finished feeding 15.9s of audio
+04:23:45.724972 VAD: feed ended with 7.13s open — finalizing
+04:23:45.725776 VAD: segment closed (feed-end, 7.13s → strong queue)
+04:23:45.726011 VAD: loop exited
+04:23:45.726028 strong: calling gpt-4o-transcribe on 7.13s segment
+04:23:46.221954 strong: done in 496ms (7.13s audio): "It's totally doable for day-to-day use."
+04:23:46.222037 strong: finalizer done (3 segments)
+04:23:46.222069 feed: finished — type 'stop' to emit final transcript
+04:23:46.300138 draft (7.1s, 576ms): "It is totally doable for day-to-day use."
+04:23:46.300187 draft: stale — segment boundary crossed during API call, discarding

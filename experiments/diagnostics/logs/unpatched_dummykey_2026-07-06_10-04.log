@@ -1,0 +1,50 @@
+2026/07/06 10:01:51 Config manager: initializing configuration system...
+2026/07/06 10:01:51 Config: loading configuration from /home/admin/code/go/hyprvoice/tmp/diag/config/hyprvoice/config.toml
+2026/07/06 10:01:51 Config: configuration loaded successfully
+2026/07/06 10:01:51 Config manager: validating initial configuration...
+2026/07/06 10:01:51 Config manager: validation warning: invalid injection.ydotool_timeout: 0s
+2026/07/06 10:01:51 Config manager: initialization completed successfully
+2026/07/06 10:01:51 Checking for existing daemon at: /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid
+2026/07/06 10:01:51 No PID file found, daemon not running
+2026/07/06 10:01:51 Creating PID file at /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid with PID 1549284
+2026/07/06 10:01:51 Config manager: watching /home/admin/code/go/hyprvoice/tmp/diag/config/hyprvoice/config.toml for changes
+2026/07/06 10:01:51 Daemon started, listening on socket
+2026/07/06 10:01:52 Pipeline: Starting recording
+2026/07/06 10:01:52 Hyprvoice: Recording Started
+2026/07/06 10:01:52 Pipeline: Starting transcriber
+2026/07/06 10:01:52 Recording stderr: -
+2026/07/06 10:01:54 Daemon: Sending inject action to pipeline
+2026/07/06 10:01:54 Hyprvoice: Recording Ended... Transcribing
+2026/07/06 10:01:54 Pipeline: Inject action received, stopping recording and finalizing transcription
+2026/07/06 10:01:54 transcriber: audio channel closed
+2026/07/06 10:01:54 transcriber: transcribing 24 bytes of audio
+2026/07/06 10:01:54 openai-adapter: API call failed after 151.837726ms: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:01:54 transcriber: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:01:54 Hyprvoice Error: Failed to stop transcriber during injection: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:01:56 Pipeline: Starting recording
+2026/07/06 10:01:56 Hyprvoice: Recording Started
+2026/07/06 10:01:56 Pipeline: Starting transcriber
+2026/07/06 10:01:56 Recording stderr: -
+2026/07/06 10:01:58 Daemon: Sending inject action to pipeline
+2026/07/06 10:01:58 Pipeline: Inject action received, stopping recording and finalizing transcription
+2026/07/06 10:01:58 Hyprvoice: Recording Ended... Transcribing
+2026/07/06 10:01:58 transcriber: audio channel closed
+2026/07/06 10:01:58 transcriber: transcribing 62092 bytes of audio
+2026/07/06 10:01:58 openai-adapter: API call failed after 71.184399ms: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:01:58 transcriber: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:01:58 Hyprvoice Error: Failed to stop transcriber during injection: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:02:00 Hyprvoice: Recording Started
+2026/07/06 10:02:00 Pipeline: Starting recording
+2026/07/06 10:02:00 Pipeline: Starting transcriber
+2026/07/06 10:02:00 Recording stderr: -
+2026/07/06 10:02:02 Daemon: Sending inject action to pipeline
+2026/07/06 10:02:02 Pipeline: Inject action received, stopping recording and finalizing transcription
+2026/07/06 10:02:02 Hyprvoice: Recording Ended... Transcribing
+2026/07/06 10:02:02 transcriber: audio channel closed
+2026/07/06 10:02:02 transcriber: transcribing 62774 bytes of audio
+2026/07/06 10:02:02 openai-adapter: API call failed after 105.59029ms: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:02:02 transcriber: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:02:02 Hyprvoice Error: Failed to stop transcriber during injection: transcription failed: openai transcription: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-dummy*****real. You can find your API key at https://platform.openai.com/account/api-keys.
+2026/07/06 10:02:04 Received signal terminated, shutting down gracefully
+2026/07/06 10:02:04 Shutdown requested, waiting for connections to finish
+2026/07/06 10:02:04 Removing PID file: /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid

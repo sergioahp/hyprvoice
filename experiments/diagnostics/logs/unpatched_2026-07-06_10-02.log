@@ -1,0 +1,34 @@
+2026/07/06 10:01:27 Config manager: initializing configuration system...
+2026/07/06 10:01:27 Config: loading configuration from /home/admin/code/go/hyprvoice/tmp/diag/config/hyprvoice/config.toml
+2026/07/06 10:01:27 Config: configuration loaded successfully
+2026/07/06 10:01:27 Config manager: validating initial configuration...
+2026/07/06 10:01:27 Config manager: validation warning: Openai API key required: not found in config (providers.openai.api_key) or environment variable (OPENAI_API_KEY)
+2026/07/06 10:01:27 Config manager: initialization completed successfully
+2026/07/06 10:01:27 Checking for existing daemon at: /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid
+2026/07/06 10:01:27 No PID file found, daemon not running
+2026/07/06 10:01:27 Creating PID file at /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid with PID 1549186
+2026/07/06 10:01:27 Config manager: watching /home/admin/code/go/hyprvoice/tmp/diag/config/hyprvoice/config.toml for changes
+2026/07/06 10:01:27 Daemon started, listening on socket
+2026/07/06 10:01:28 Pipeline: Starting recording
+2026/07/06 10:01:28 Hyprvoice: Recording Started
+2026/07/06 10:01:28 Pipeline: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:28 Hyprvoice Error: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:28 Recording error: start pw-record: context canceled
+2026/07/06 10:01:30 Hyprvoice: Recording Started
+2026/07/06 10:01:30 Pipeline: Starting recording
+2026/07/06 10:01:30 Pipeline: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:30 Hyprvoice Error: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:30 Recording error: start pw-record: context canceled
+2026/07/06 10:01:32 Hyprvoice: Recording Started
+2026/07/06 10:01:32 Pipeline: Starting recording
+2026/07/06 10:01:32 Pipeline: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:32 Hyprvoice Error: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:32 Recording error: start pw-record: context canceled
+2026/07/06 10:01:34 Hyprvoice: Recording Started
+2026/07/06 10:01:34 Pipeline: Starting recording
+2026/07/06 10:01:34 Pipeline: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:34 Hyprvoice Error: Failed to create transcriber: Openai API key required
+2026/07/06 10:01:34 Recording error: start pw-record: context canceled
+2026/07/06 10:01:36 Received signal terminated, shutting down gracefully
+2026/07/06 10:01:36 Shutdown requested, waiting for connections to finish
+2026/07/06 10:01:36 Removing PID file: /home/admin/code/go/hyprvoice/tmp/diag/cache/hyprvoice/hyprvoice.pid

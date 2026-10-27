@@ -1,0 +1,7 @@
+# Keep the archived evidence, but avoid committing caches and regenerated frames.
+__pycache__/
+*.pyc
+/voxtral-inspect/allframes/
+/voxtral-inspect/frames/
+/voxtral-inspect/montage_states.png
+/diagnostics/logs/*.jsonl

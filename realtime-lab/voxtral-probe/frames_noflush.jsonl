@@ -1,0 +1,35 @@
+{"type":"session.created","session":{"request_id":"ws-019f1099-b23e-75f2-8db2-ab86aef13d37","model":"voxtral-mini-transcribe-realtime-2602","audio_format":{"encoding":"pcm_s16le","sample_rate":16000},"target_streaming_delay_ms":null}}
+{"type":"session.updated","session":{"request_id":"ws-019f1099-b23e-75f2-8db2-ab86aef13d37","model":"voxtral-mini-transcribe-realtime-2602","audio_format":{"encoding":"pcm_s16le","sample_rate":16000},"target_streaming_delay_ms":480}}
+{"type":"transcription.text.delta","text":"The"}
+{"type":"transcription.text.delta","text":" camera"}
+{"type":"transcription.text.delta","text":" is"}
+{"type":"transcription.text.delta","text":" not"}
+{"type":"transcription.text.delta","text":" directly"}
+{"type":"transcription.text.delta","text":" in"}
+{"type":"transcription.text.delta","text":" front"}
+{"type":"transcription.text.delta","text":" of"}
+{"type":"transcription.text.delta","text":" me"}
+{"type":"transcription.text.delta","text":","}
+{"type":"transcription.text.delta","text":" it"}
+{"type":"transcription.text.delta","text":"'s"}
+{"type":"transcription.text.delta","text":" about"}
+{"type":"transcription.text.delta","text":" a"}
+{"type":"transcription.text.delta","text":" meter"}
+{"type":"transcription.text.delta","text":" away"}
+{"type":"transcription.text.delta","text":"."}
+{"type":"transcription.text.delta","text":" Which"}
+{"type":"transcription.text.delta","text":" is"}
+{"type":"transcription.text.delta","text":" totally"}
+{"type":"transcription.text.delta","text":" do"}
+{"type":"transcription.text.delta","text":"able"}
+{"type":"transcription.text.delta","text":" for"}
+{"type":"transcription.text.delta","text":" day"}
+{"type":"transcription.text.delta","text":" to"}
+{"type":"transcription.text.delta","text":" day"}
+{"type":"transcription.text.delta","text":","}
+{"type":"transcription.text.delta","text":" day"}
+{"type":"transcription.text.delta","text":" to"}
+{"type":"transcription.text.delta","text":" day"}
+{"type":"transcription.text.delta","text":" use"}
+{"type":"transcription.text.delta","text":"."}
+{"model":"voxtral-mini-transcribe-realtime-2602","text":"The camera is not directly in front of me, it's about a meter away. Which is totally doable for day to day, day to day use.","language":null,"segments":[],"usage":{"prompt_audio_seconds":2,"prompt_tokens":23,"total_tokens":233,"completion_tokens":210},"type":"transcription.done"}

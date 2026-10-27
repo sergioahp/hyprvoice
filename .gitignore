@@ -14,8 +14,8 @@ coverage.*
 *.coverprofile
 profile.cov
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Dependencies can be regenerated from go.mod and go.sum.
+/vendor/
 
 # Go workspace file
 go.work
@@ -32,6 +32,9 @@ go.work.sum
 /hyprvoice
 /hyprvoice-*
 packaging/hyprvoice-v*
-tmp/*
+/result
+__pycache__/
+*.py[cod]
+/tmp/
 # CLAUDE.md is tracked in this fork for automated conflict resolution
 !CLAUDE.md

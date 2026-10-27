@@ -1,0 +1,169 @@
+{
+  "video": "/home/admin/2026-06-28 17-14-42.mp4",
+  "crop": "620:455:320:245",
+  "fps": 5,
+  "params": {
+    "DIFF_PX_THRESH": 25,
+    "STILL_MAX": 40,
+    "CHANGE_THRESH": 120,
+    "SETTLE": 3
+  },
+  "n_frames": 510,
+  "n_states": 22,
+  "states": [
+    {
+      "idx": 0,
+      "frame_index": 0,
+      "t": 0.0,
+      "dpx": 0,
+      "frame": "states/state_000_t000.00.png"
+    },
+    {
+      "idx": 1,
+      "frame_index": 23,
+      "t": 4.6,
+      "dpx": 5341,
+      "frame": "states/state_001_t004.60.png"
+    },
+    {
+      "idx": 2,
+      "frame_index": 29,
+      "t": 5.8,
+      "dpx": 2276,
+      "frame": "states/state_002_t005.80.png"
+    },
+    {
+      "idx": 3,
+      "frame_index": 33,
+      "t": 6.6,
+      "dpx": 221,
+      "frame": "states/state_003_t006.60.png"
+    },
+    {
+      "idx": 4,
+      "frame_index": 79,
+      "t": 15.8,
+      "dpx": 3377,
+      "frame": "states/state_004_t015.80.png"
+    },
+    {
+      "idx": 5,
+      "frame_index": 90,
+      "t": 18.0,
+      "dpx": 993,
+      "frame": "states/state_005_t018.00.png"
+    },
+    {
+      "idx": 6,
+      "frame_index": 102,
+      "t": 20.4,
+      "dpx": 1504,
+      "frame": "states/state_006_t020.40.png"
+    },
+    {
+      "idx": 7,
+      "frame_index": 113,
+      "t": 22.6,
+      "dpx": 2304,
+      "frame": "states/state_007_t022.60.png"
+    },
+    {
+      "idx": 8,
+      "frame_index": 121,
+      "t": 24.2,
+      "dpx": 1454,
+      "frame": "states/state_008_t024.20.png"
+    },
+    {
+      "idx": 9,
+      "frame_index": 169,
+      "t": 33.8,
+      "dpx": 4247,
+      "frame": "states/state_009_t033.80.png"
+    },
+    {
+      "idx": 10,
+      "frame_index": 175,
+      "t": 35.0,
+      "dpx": 471,
+      "frame": "states/state_010_t035.00.png"
+    },
+    {
+      "idx": 11,
+      "frame_index": 221,
+      "t": 44.2,
+      "dpx": 3280,
+      "frame": "states/state_011_t044.20.png"
+    },
+    {
+      "idx": 12,
+      "frame_index": 229,
+      "t": 45.8,
+      "dpx": 670,
+      "frame": "states/state_012_t045.80.png"
+    },
+    {
+      "idx": 13,
+      "frame_index": 240,
+      "t": 48.0,
+      "dpx": 1164,
+      "frame": "states/state_013_t048.00.png"
+    },
+    {
+      "idx": 14,
+      "frame_index": 280,
+      "t": 56.0,
+      "dpx": 3309,
+      "frame": "states/state_014_t056.00.png"
+    },
+    {
+      "idx": 15,
+      "frame_index": 295,
+      "t": 59.0,
+      "dpx": 1357,
+      "frame": "states/state_015_t059.00.png"
+    },
+    {
+      "idx": 16,
+      "frame_index": 305,
+      "t": 61.0,
+      "dpx": 880,
+      "frame": "states/state_016_t061.00.png"
+    },
+    {
+      "idx": 17,
+      "frame_index": 332,
+      "t": 66.4,
+      "dpx": 1899,
+      "frame": "states/state_017_t066.40.png"
+    },
+    {
+      "idx": 18,
+      "frame_index": 376,
+      "t": 75.2,
+      "dpx": 3408,
+      "frame": "states/state_018_t075.20.png"
+    },
+    {
+      "idx": 19,
+      "frame_index": 434,
+      "t": 86.8,
+      "dpx": 4689,
+      "frame": "states/state_019_t086.80.png"
+    },
+    {
+      "idx": 20,
+      "frame_index": 445,
+      "t": 89.0,
+      "dpx": 1577,
+      "frame": "states/state_020_t089.00.png"
+    },
+    {
+      "idx": 21,
+      "frame_index": 503,
+      "t": 100.6,
+      "dpx": 4686,
+      "frame": "states/state_021_t100.60.png"
+    }
+  ]
+}
