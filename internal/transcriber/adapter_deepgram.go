@@ -30,12 +30,8 @@ type DeepgramAdapter struct {
 	wg        sync.WaitGroup
 	started   bool
 
-	// reconnection config
-	maxRetries  int
-	retryDelays []time.Duration
-
 	// finalization signaling
-	finalizeDone chan struct{}
+	finalizeDone chan error
 	finalizing   bool // true when Finalize() has been called
 }
 
@@ -47,6 +43,9 @@ type deepgramCloseStream struct {
 // Deepgram WebSocket response types (incoming)
 type deepgramWSResponse struct {
 	Type        string            `json:"type"`
+	Description string            `json:"description,omitempty"`
+	Variant     string            `json:"variant,omitempty"`
+	Code        string            `json:"code,omitempty"`
 	Channel     *deepgramChannel  `json:"channel,omitempty"`
 	Metadata    *deepgramMetadata `json:"metadata,omitempty"`
 	Error       *deepgramError    `json:"error,omitempty"`
@@ -93,9 +92,7 @@ func NewDeepgramAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang s
 		language:     lang,
 		keywords:     keywords,
 		resultsCh:    make(chan TranscriptionResult, 100),
-		maxRetries:   3,
-		retryDelays:  defaultRetryDelays,
-		finalizeDone: make(chan struct{}, 1),
+		finalizeDone: make(chan error, 1),
 	}
 }
 
@@ -118,6 +115,7 @@ func (a *DeepgramAdapter) Start(ctx context.Context, lang string) error {
 
 	// connect to WebSocket
 	if err := a.connectLocked(); err != nil {
+		a.cancel()
 		return err
 	}
 	a.started = true
@@ -149,61 +147,8 @@ func (a *DeepgramAdapter) connectLocked() error {
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 	a.conn = conn
+	bindStreamingSocket(a.ctx, conn)
 	return nil
-}
-
-// reconnect attempts to re-establish the WebSocket connection with exponential backoff.
-// Returns true if reconnection succeeded.
-func (a *DeepgramAdapter) reconnect() bool {
-	for attempt := 0; attempt < a.maxRetries; attempt++ {
-		// check if context cancelled
-		select {
-		case <-a.ctx.Done():
-			return false
-		default:
-		}
-
-		// wait before retry (skip wait on first attempt)
-		if attempt > 0 {
-			delay := a.retryDelays[attempt-1]
-			if attempt-1 >= len(a.retryDelays) {
-				delay = a.retryDelays[len(a.retryDelays)-1]
-			}
-			log.Printf("deepgram: reconnect attempt %d/%d after %v", attempt+1, a.maxRetries, delay)
-
-			select {
-			case <-a.ctx.Done():
-				return false
-			case <-time.After(delay):
-			}
-		} else {
-			log.Printf("deepgram: reconnect attempt %d/%d", attempt+1, a.maxRetries)
-		}
-
-		a.mu.Lock()
-		// close old connection if exists
-		if a.conn != nil {
-			a.conn.Close()
-			a.conn = nil
-		}
-
-		err := a.connectLocked()
-		a.mu.Unlock()
-
-		if err == nil {
-			log.Printf("deepgram: reconnected successfully")
-			// notify caller of brief interruption
-			select {
-			case a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection interrupted, reconnected"), IsFinal: false}:
-			default:
-			}
-			return true
-		}
-
-		log.Printf("deepgram: reconnect failed: %v", err)
-	}
-
-	return false
 }
 
 // buildURL constructs the WebSocket URL with query parameters
@@ -262,12 +207,8 @@ func (a *DeepgramAdapter) readLoop() {
 		a.mu.Unlock()
 
 		if conn == nil {
-			// no connection, try to reconnect
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection lost, reconnection failed after %d attempts", a.maxRetries)}
-				return
-			}
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("streaming connection is closed"))})
+			return
 		}
 
 		_, message, err := conn.ReadMessage()
@@ -284,29 +225,25 @@ func (a *DeepgramAdapter) readLoop() {
 			finalizing := a.finalizing
 			a.mu.Unlock()
 
+			if finalizing && websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				a.finalizeDone <- nil
+				return
+			}
+			fatal := NewFatalTranscriptionError(fmt.Errorf("websocket read: %w; recording cannot be resumed without audio loss", err))
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: fatal})
 			if finalizing {
-				// expected close after finalization, signal done and exit gracefully
-				select {
-				case a.finalizeDone <- struct{}{}:
-				default:
-				}
-				return
+				a.finalizeDone <- fatal
 			}
-
-			// attempt reconnection
-			log.Printf("deepgram: read error: %v, attempting reconnection", err)
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("websocket read: %w, reconnection failed", err)}
-				return
-			}
-			continue
+			a.cancel()
+			return
 		}
 
 		// parse message
 		var resp deepgramWSResponse
 		if err := json.Unmarshal(message, &resp); err != nil {
-			log.Printf("deepgram: parse error: %v", err)
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("deepgram: invalid server response: %w", err))})
+			a.cancel()
+			return
 		}
 
 		// handle different message types
@@ -325,25 +262,23 @@ func (a *DeepgramAdapter) readLoop() {
 					isFinal := resp.IsFinal || resp.SpeechFinal
 					if isFinal {
 						log.Printf("deepgram: final: %q", transcript)
-						// signal finalization (non-blocking)
-						select {
-						case a.finalizeDone <- struct{}{}:
-						default:
-						}
 					}
-					a.resultsCh <- TranscriptionResult{Text: transcript, IsFinal: isFinal}
+					emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Text: transcript, IsFinal: isFinal})
 				}
 			}
 
 		case "Error":
+			details := []string{resp.Code, resp.Variant, resp.Description}
 			if resp.Error != nil {
-				errMsg := resp.Error.Message
-				if resp.Error.Description != "" {
-					errMsg = fmt.Sprintf("%s: %s", errMsg, resp.Error.Description)
-				}
-				log.Printf("deepgram: error: %s", errMsg)
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("deepgram: %s", errMsg)}
+				details = append(details, resp.Error.Type, resp.Error.Message, resp.Error.Description)
 			}
+			errMsg := strings.TrimSpace(strings.Join(details, " "))
+			if errMsg == "" {
+				errMsg = "server reported a transcription error"
+			}
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("deepgram: %s", errMsg))})
+			a.cancel()
+			return
 
 		case "UtteranceEnd":
 			log.Printf("deepgram: utterance end detected")
@@ -381,22 +316,14 @@ func (a *DeepgramAdapter) SendChunk(audio []byte) error {
 
 	// send raw binary audio (not base64)
 	a.mu.Lock()
-	err := a.conn.WriteMessage(websocket.BinaryMessage, audio)
+	err := streamingWriteDeadline(a.ctx, conn)
+	if err == nil {
+		err = conn.WriteMessage(websocket.BinaryMessage, audio)
+	}
 	a.mu.Unlock()
 
 	if err != nil {
-		// attempt reconnection
-		log.Printf("deepgram: write error: %v, attempting reconnection", err)
-		if a.reconnect() {
-			// retry the chunk after reconnection
-			a.mu.Lock()
-			err = a.conn.WriteMessage(websocket.BinaryMessage, audio)
-			a.mu.Unlock()
-			if err == nil {
-				return nil
-			}
-		}
-		return fmt.Errorf("websocket write: %w", err)
+		return NewFatalTranscriptionError(fmt.Errorf("websocket write: %w", err))
 	}
 
 	return nil
@@ -409,6 +336,8 @@ func (a *DeepgramAdapter) Results() <-chan TranscriptionResult {
 
 // Finalize sends a CloseStream message to signal end of audio and waits for final results
 func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	a.mu.Lock()
 	if !a.started {
 		a.mu.Unlock()
@@ -427,7 +356,7 @@ func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
 	default:
 	}
 
-	// mark as finalizing to prevent reconnection attempts on normal close
+	// Only the terminal normal close acknowledges CloseStream.
 	a.mu.Lock()
 	a.finalizing = true
 	a.mu.Unlock()
@@ -436,7 +365,7 @@ func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
 	msg := deepgramCloseStream{Type: "CloseStream"}
 
 	a.mu.Lock()
-	err := a.conn.WriteJSON(msg)
+	err := writeStreamingJSON(a.ctx, conn, msg)
 	a.mu.Unlock()
 
 	if err != nil {
@@ -448,9 +377,9 @@ func (a *DeepgramAdapter) Finalize(ctx context.Context) error {
 
 	// wait for final result or timeout
 	select {
-	case <-a.finalizeDone:
+	case err := <-a.finalizeDone:
 		log.Printf("deepgram: finalize complete")
-		return nil
+		return err
 	case <-ctx.Done():
 		log.Printf("deepgram: finalize timeout")
 		return ctx.Err()
@@ -468,7 +397,7 @@ func (a *DeepgramAdapter) Close() error {
 		return nil
 	}
 
-	// mark as finalizing to prevent reconnection attempts
+	// Treat shutdown as intentional rather than a disconnected session.
 	a.finalizing = true
 
 	// cancel context first to signal reader to stop
@@ -484,8 +413,6 @@ func (a *DeepgramAdapter) Close() error {
 
 	// close websocket outside of lock (readLoop may be blocked on read)
 	if conn != nil {
-		// send close frame (best effort)
-		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		conn.Close()
 	}
 

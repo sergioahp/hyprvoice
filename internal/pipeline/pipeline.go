@@ -149,8 +149,12 @@ func (p *pipeline) Run(ctx context.Context) {
 }
 
 func (p *pipeline) run(ctx context.Context) {
+	announced, completed := false, false
 	defer func() {
 		p.getCancel()()
+		if announced && !completed {
+			p.sendNotify(notify.MsgOperationCancelled)
+		}
 		close(p.errorCh)
 		close(p.notifyCh)
 		p.setStatus(Idle)
@@ -194,6 +198,7 @@ func (p *pipeline) run(ctx context.Context) {
 	} else {
 		p.sendNotify(notify.MsgRecordingStarted)
 	}
+	announced = true
 
 	defer func() {
 		p.getCancel()()
@@ -229,7 +234,7 @@ func (p *pipeline) run(ctx context.Context) {
 		case action := <-p.actionCh:
 			switch action {
 			case Inject:
-				p.handleInjectAction(ctx, recorder, t, rErrCh)
+				completed = p.handleInjectAction(ctx, recorder, t, rErrCh)
 				return
 			case Cancel:
 				return
@@ -305,12 +310,12 @@ func (p *pipeline) sendNotify(mt notify.MessageType) {
 	}
 }
 
-func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber, rErrCh <-chan error) {
+func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber, rErrCh <-chan error) bool {
 	status := p.Status()
 
 	if status != Transcribing {
 		log.Printf("Pipeline: Inject action received, but not in transcribing state, ignoring")
-		return
+		return false
 	}
 
 	log.Printf("Pipeline: Inject action received, stopping recording and finalizing transcription")
@@ -329,20 +334,20 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 		for err := range rErrCh {
 			if err != nil {
 				p.sendError("Recording Error", "Recording stream error", err)
-				return
+				return false
 			}
 		}
 	}
 
 	if err := t.Stop(ctx); err != nil {
 		p.sendError("Transcription Error", "Failed to stop transcriber during injection", err)
-		return
+		return false
 	}
 
 	transcriptionText, err := t.GetFinalTranscription()
 	if err != nil {
 		p.sendError("Transcription Error", "Failed to retrieve transcription", err)
-		return
+		return false
 	}
 	log.Printf("Pipeline: Final transcription text: %s", transcriptionText)
 
@@ -392,9 +397,13 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 	}, textToInject)
 
 	injector := p.injectorFactory(p.config.ToInjectionConfig())
+	if ctx.Err() != nil {
+		return false
+	}
 
 	if err := injector.Inject(ctx, textToInject); err != nil {
 		p.sendError("Injection Error", "Failed to inject text", err)
+		return false
 	} else {
 		log.Printf("Pipeline: Text injection completed successfully")
 		if p.contextPrompt != "" {
@@ -405,6 +414,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 	}
 
 	p.setStatus(Idle)
+	return true
 }
 
 func (p *pipeline) Stop() {

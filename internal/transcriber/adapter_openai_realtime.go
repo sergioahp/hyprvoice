@@ -31,10 +31,6 @@ type OpenAIRealtimeAdapter struct {
 	wg        sync.WaitGroup
 	started   bool
 
-	// reconnection config
-	maxRetries  int
-	retryDelays []time.Duration
-
 	// track current item for transcription
 	currentItemID string
 
@@ -52,7 +48,7 @@ type openaiRealtimeSessionConfig struct {
 	Modalities              []string                     `json:"modalities,omitempty"`
 	InputAudioFormat        string                       `json:"input_audio_format,omitempty"`
 	InputAudioTranscription *openaiRealtimeTranscription `json:"input_audio_transcription,omitempty"`
-	TurnDetection           *openaiRealtimeTurnDetection `json:"turn_detection,omitempty"`
+	TurnDetection           *openaiRealtimeTurnDetection `json:"turn_detection"`
 }
 
 type openaiRealtimeTranscription struct {
@@ -115,8 +111,6 @@ func NewOpenAIRealtimeAdapter(endpoint *provider.EndpointConfig, apiKey, model, 
 		language:          lang,
 		keywords:          keywords,
 		resultsCh:         make(chan TranscriptionResult, 100),
-		maxRetries:        3,
-		retryDelays:       defaultRetryDelays,
 		transcriptionDone: make(chan struct{}, 1),
 	}
 }
@@ -140,6 +134,7 @@ func (a *OpenAIRealtimeAdapter) Start(ctx context.Context, lang string) error {
 
 	// connect to WebSocket
 	if err := a.connectLocked(); err != nil {
+		a.cancel()
 		return err
 	}
 	a.started = true
@@ -172,6 +167,7 @@ func (a *OpenAIRealtimeAdapter) connectLocked() error {
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 	a.conn = conn
+	bindStreamingSocket(a.ctx, conn)
 
 	// configure session for transcription-only mode
 	if err := a.configureSession(); err != nil {
@@ -186,7 +182,7 @@ func (a *OpenAIRealtimeAdapter) connectLocked() error {
 // configureSession sends session.update to configure transcription mode
 func (a *OpenAIRealtimeAdapter) configureSession() error {
 	// configure for transcription-only mode
-	// use server VAD to automatically detect speech and commit audio
+	// Commit once at Stop; automatic VAD completions cannot acknowledge the final commit.
 	sessionUpdate := openaiRealtimeSessionUpdate{
 		Type: "session.update",
 		Session: openaiRealtimeSessionConfig{
@@ -194,13 +190,6 @@ func (a *OpenAIRealtimeAdapter) configureSession() error {
 			InputAudioFormat: "pcm16",          // we send 16-bit PCM
 			InputAudioTranscription: &openaiRealtimeTranscription{
 				Model: "gpt-4o-transcribe", // use gpt-4o for input transcription
-			},
-			TurnDetection: &openaiRealtimeTurnDetection{
-				Type:              "server_vad",
-				Threshold:         0.5,
-				PrefixPaddingMs:   300,
-				SilenceDurationMs: 500,
-				CreateResponse:    false, // we don't want responses, just transcription
 			},
 		},
 	}
@@ -214,61 +203,7 @@ func (a *OpenAIRealtimeAdapter) configureSession() error {
 		sessionUpdate.Session.InputAudioTranscription.Prompt = strings.Join(a.keywords, ", ")
 	}
 
-	return a.conn.WriteJSON(sessionUpdate)
-}
-
-// reconnect attempts to re-establish the WebSocket connection with exponential backoff.
-// Returns true if reconnection succeeded.
-func (a *OpenAIRealtimeAdapter) reconnect() bool {
-	for attempt := 0; attempt < a.maxRetries; attempt++ {
-		// check if context cancelled
-		select {
-		case <-a.ctx.Done():
-			return false
-		default:
-		}
-
-		// wait before retry (skip wait on first attempt)
-		if attempt > 0 {
-			delay := a.retryDelays[attempt-1]
-			if attempt-1 >= len(a.retryDelays) {
-				delay = a.retryDelays[len(a.retryDelays)-1]
-			}
-			log.Printf("openai-realtime: reconnect attempt %d/%d after %v", attempt+1, a.maxRetries, delay)
-
-			select {
-			case <-a.ctx.Done():
-				return false
-			case <-time.After(delay):
-			}
-		} else {
-			log.Printf("openai-realtime: reconnect attempt %d/%d", attempt+1, a.maxRetries)
-		}
-
-		a.mu.Lock()
-		// close old connection if exists
-		if a.conn != nil {
-			a.conn.Close()
-			a.conn = nil
-		}
-
-		err := a.connectLocked()
-		a.mu.Unlock()
-
-		if err == nil {
-			log.Printf("openai-realtime: reconnected successfully")
-			// notify caller of brief interruption
-			select {
-			case a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection interrupted, reconnected"), IsFinal: false}:
-			default:
-			}
-			return true
-		}
-
-		log.Printf("openai-realtime: reconnect failed: %v", err)
-	}
-
-	return false
+	return writeStreamingJSON(a.ctx, a.conn, sessionUpdate)
 }
 
 // buildURL constructs the WebSocket URL with query parameters
@@ -306,12 +241,8 @@ func (a *OpenAIRealtimeAdapter) readLoop() {
 		a.mu.Unlock()
 
 		if conn == nil {
-			// no connection, try to reconnect
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection lost, reconnection failed after %d attempts", a.maxRetries)}
-				return
-			}
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("streaming connection is closed"))})
+			return
 		}
 
 		_, message, err := conn.ReadMessage()
@@ -323,20 +254,18 @@ func (a *OpenAIRealtimeAdapter) readLoop() {
 			default:
 			}
 
-			// attempt reconnection
-			log.Printf("openai-realtime: read error: %v, attempting reconnection", err)
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("websocket read: %w, reconnection failed", err)}
-				return
-			}
-			continue
+			fatal := NewFatalTranscriptionError(fmt.Errorf("websocket read: %w; recording cannot be resumed without audio loss", err))
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: fatal})
+			a.cancel()
+			return
 		}
 
 		// parse message
 		var event openaiRealtimeServerEvent
 		if err := json.Unmarshal(message, &event); err != nil {
-			log.Printf("openai-realtime: parse error: %v", err)
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("openai-realtime: invalid server response: %w", err))})
+			a.cancel()
+			return
 		}
 
 		// handle different event types
@@ -362,7 +291,8 @@ func (a *OpenAIRealtimeAdapter) handleEvent(event openaiRealtimeServerEvent) {
 				errMsg = fmt.Sprintf("%s: %s", event.Error.Code, errMsg)
 			}
 			log.Printf("openai-realtime: error: %s", errMsg)
-			a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("openai: %s", errMsg)}
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("openai: %s", errMsg))})
+			a.cancel()
 		}
 
 	case "input_audio_buffer.speech_started":
@@ -379,14 +309,14 @@ func (a *OpenAIRealtimeAdapter) handleEvent(event openaiRealtimeServerEvent) {
 	case "conversation.item.input_audio_transcription.delta":
 		// partial transcription result
 		if event.Delta != "" {
-			a.resultsCh <- TranscriptionResult{Text: event.Delta, IsFinal: false}
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Text: event.Delta, IsFinal: false})
 		}
 
 	case "conversation.item.input_audio_transcription.completed":
 		// final transcription result
 		log.Printf("openai-realtime: transcription completed: %q", event.Transcript)
 		if event.Transcript != "" {
-			a.resultsCh <- TranscriptionResult{Text: event.Transcript, IsFinal: true}
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Text: event.Transcript, IsFinal: true})
 		}
 		// signal finalization (non-blocking)
 		select {
@@ -395,10 +325,12 @@ func (a *OpenAIRealtimeAdapter) handleEvent(event openaiRealtimeServerEvent) {
 		}
 
 	case "conversation.item.input_audio_transcription.failed":
-		log.Printf("openai-realtime: transcription failed for item %s", event.ItemID)
+		errMsg := "transcription failed for item " + event.ItemID
 		if event.Error != nil {
-			a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("transcription failed: %s", event.Error.Message)}
+			errMsg += ": " + event.Error.Message
 		}
+		emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("%s", errMsg))})
+		a.cancel()
 
 	case "conversation.item.created", "conversation.item.added":
 		log.Printf("openai-realtime: conversation item created/added")
@@ -448,22 +380,11 @@ func (a *OpenAIRealtimeAdapter) SendChunk(audio []byte) error {
 
 	// send as JSON
 	a.mu.Lock()
-	err := a.conn.WriteJSON(msg)
+	err := writeStreamingJSON(a.ctx, conn, msg)
 	a.mu.Unlock()
 
 	if err != nil {
-		// attempt reconnection
-		log.Printf("openai-realtime: write error: %v, attempting reconnection", err)
-		if a.reconnect() {
-			// retry the chunk after reconnection
-			a.mu.Lock()
-			err = a.conn.WriteJSON(msg)
-			a.mu.Unlock()
-			if err == nil {
-				return nil
-			}
-		}
-		return fmt.Errorf("websocket write: %w", err)
+		return NewFatalTranscriptionError(fmt.Errorf("websocket write: %w", err))
 	}
 
 	return nil
@@ -520,6 +441,8 @@ func (a *OpenAIRealtimeAdapter) Results() <-chan TranscriptionResult {
 // Finalize sends a commit message to force OpenAI to process any pending audio
 // and waits for the transcription.completed response
 func (a *OpenAIRealtimeAdapter) Finalize(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
 	a.mu.Lock()
 	if !a.started {
 		a.mu.Unlock()
@@ -544,7 +467,7 @@ func (a *OpenAIRealtimeAdapter) Finalize(ctx context.Context) error {
 	}
 
 	a.mu.Lock()
-	err := a.conn.WriteJSON(msg)
+	err := writeStreamingJSON(a.ctx, conn, msg)
 	a.mu.Unlock()
 
 	if err != nil {
@@ -589,8 +512,6 @@ func (a *OpenAIRealtimeAdapter) Close() error {
 
 	// close websocket outside of lock (readLoop may be blocked on read)
 	if conn != nil {
-		// send close frame (best effort)
-		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		conn.Close()
 	}
 

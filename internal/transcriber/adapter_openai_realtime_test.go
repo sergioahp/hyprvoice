@@ -395,67 +395,6 @@ func TestOpenAIRealtimeAdapter_ErrorHandling(t *testing.T) {
 	}
 }
 
-func TestOpenAIRealtimeAdapter_Reconnection(t *testing.T) {
-	connectCount := 0
-	var mu sync.Mutex
-
-	server := mockOpenAIRealtimeServer(t, func(conn *websocket.Conn) {
-		mu.Lock()
-		connectCount++
-		count := connectCount
-		mu.Unlock()
-
-		// send session.created
-		conn.WriteJSON(map[string]interface{}{"type": "session.created", "session": map[string]interface{}{"id": "sess_" + string(rune('0'+count))}})
-
-		// read session.update
-		conn.ReadMessage()
-
-		// send session.updated
-		conn.WriteJSON(map[string]interface{}{"type": "session.updated"})
-
-		// first connection: close immediately to trigger reconnect
-		if count == 1 {
-			time.Sleep(50 * time.Millisecond)
-			conn.Close()
-			return
-		}
-
-		// second connection: stay open
-		for {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-		}
-	})
-	defer server.Close()
-
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
-	endpoint := &provider.EndpointConfig{BaseURL: wsURL, Path: ""}
-	adapter := NewOpenAIRealtimeAdapter(endpoint, "sk-test", "gpt-4o-realtime-preview", "", nil)
-	adapter.retryDelays = []time.Duration{10 * time.Millisecond, 20 * time.Millisecond, 40 * time.Millisecond}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := adapter.Start(ctx, ""); err != nil {
-		t.Fatalf("Start failed: %v", err)
-	}
-	defer adapter.Close()
-
-	// wait for reconnection
-	time.Sleep(500 * time.Millisecond)
-
-	mu.Lock()
-	finalCount := connectCount
-	mu.Unlock()
-
-	if finalCount < 2 {
-		t.Errorf("expected at least 2 connections (reconnection), got %d", finalCount)
-	}
-}
-
 func TestOpenAIRealtimeAdapter_Close(t *testing.T) {
 	server := mockOpenAIRealtimeServer(t, func(conn *websocket.Conn) {
 		conn.WriteJSON(map[string]interface{}{"type": "session.created", "session": map[string]interface{}{"id": "sess_123"}})

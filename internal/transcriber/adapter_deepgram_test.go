@@ -34,9 +34,7 @@ func TestDeepgramAdapter_Creation(t *testing.T) {
 	if adapter.language != "en" {
 		t.Errorf("language = %q, want %q", adapter.language, "en")
 	}
-	if adapter.maxRetries != 3 {
-		t.Errorf("maxRetries = %d, want %d", adapter.maxRetries, 3)
-	}
+
 }
 
 func TestDeepgramAdapter_BuildURL(t *testing.T) {

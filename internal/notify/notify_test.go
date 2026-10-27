@@ -2,7 +2,11 @@ package notify
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func testMessages() map[MessageType]Message {
@@ -17,21 +21,17 @@ func testMessages() map[MessageType]Message {
 }
 
 func TestDesktop_Send(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping Desktop test in CI - calls notify-send")
-	}
+	mockNotifyCommand(t, "exit 0\n")
 	desktop := NewDesktop(testMessages())
 
-	// Test Send for different message types (won't actually send, just verify no panic)
+	// The command helper isolates these notifications from the desktop.
 	desktop.Send(MsgRecordingStarted)
 	desktop.Send(MsgTranscribing)
 	desktop.Send(MsgRecordingAborted) // error type
 }
 
 func TestDesktop_Error(t *testing.T) {
-	if os.Getenv("CI") == "true" {
-		t.Skip("Skipping Desktop test in CI - calls notify-send")
-	}
+	mockNotifyCommand(t, "exit 0\n")
 	desktop := NewDesktop(testMessages())
 	desktop.Error("Test Error Message")
 }
@@ -126,4 +126,49 @@ func TestSend_UnknownMessageType(t *testing.T) {
 
 	// Should not panic with unknown message type
 	desktop.Send(MessageType(999))
+}
+
+func mockNotifyCommand(t *testing.T, script string) string {
+	t.Helper()
+	dir := t.TempDir()
+	shell, err := exec.LookPath("sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "notify-send")
+	if err := os.WriteFile(path, []byte("#!"+shell+"\n"+script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return dir
+}
+
+func TestDesktop_AbortReplacesRecording(t *testing.T) {
+	dir := mockNotifyCommand(t, "printf '%s\\n' \"$@\" > \"$HYPRVOICE_TEST_NOTIFY_ARGS\"\n")
+	path := filepath.Join(dir, "args")
+	t.Setenv("HYPRVOICE_TEST_NOTIFY_ARGS", path)
+	desktop := NewDesktop(testMessages())
+	desktop.Send(MsgRecordingAborted)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "-r\n9999\n") || !strings.Contains(string(b), "Hyprvoice\n") {
+		t.Fatalf("arguments=%q", b)
+	}
+}
+
+func TestDesktop_NotificationTimeout(t *testing.T) {
+	sleep, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockNotifyCommand(t, "exec '"+strings.ReplaceAll(sleep, "'", "'\\''")+"' 30\n")
+	finished := make(chan struct{})
+	go func() { NewDesktop(testMessages()).Send(MsgRecordingStarted); close(finished) }()
+	select {
+	case <-finished:
+	case <-time.After(4 * time.Second):
+		t.Fatal("notification command did not time out")
+	}
 }

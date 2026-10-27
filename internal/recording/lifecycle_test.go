@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,14 @@ func TestRecorderSubprocess(t *testing.T) {
 	os.WriteFile(os.Getenv("HYPRVOICE_TEST_SPAWNED"), nil, 0600)
 	if mode == "eof" {
 		os.Exit(0)
+	}
+	if mode == "descendant" {
+		child := exec.Command("sleep", "30")
+		child.Stdout, child.Stderr = os.Stdout, os.Stderr
+		if err := child.Start(); err != nil {
+			os.Exit(3)
+		}
+		os.WriteFile(os.Getenv("HYPRVOICE_TEST_SPAWNED")+".child", []byte(strconv.Itoa(child.Process.Pid)), 0600)
 	}
 	if mode == "gated" {
 		for {
@@ -203,5 +212,34 @@ func TestRecorder_RejectsMislabeledAudio(t *testing.T) {
 				t.Fatal("unsupported PCM accepted")
 			}
 		})
+	}
+}
+
+func TestRecorder_StopBoundsInheritedPipe(t *testing.T) {
+	_, spawned := mockRecorderCommands(t, "descendant")
+	r := testRecorder()
+	if _, _, err := r.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer r.Stop()
+	b, err := os.ReadFile(spawned + ".child")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid, err := strconv.Atoi(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	child, err := os.FindProcess(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer child.Kill()
+	finished := make(chan struct{})
+	go func() { r.Stop(); close(finished) }()
+	select {
+	case <-finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("inherited stdout prevented Stop")
 	}
 }

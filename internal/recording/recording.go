@@ -164,10 +164,15 @@ func (r *recorder) captureLoop(ctx context.Context, frameCh chan<- AudioFrame, e
 	r.mu.Lock()
 	r.cmd = cmd
 	r.mu.Unlock()
-	// Using our own pipe lets Wait run concurrently with reads. WaitDelay then
-	// also bounds shutdown if the recorder ignores SIGINT and keeps stdout open.
+	// Using our own pipe lets Wait run concurrently with reads. WaitDelay kills
+	// an unresponsive recorder; the read deadline also covers descendants that
+	// keep the inherited stdout descriptor open after the recorder has exited.
 	waitCh := make(chan error, 1)
-	go func() { waitCh <- cmd.Wait() }()
+	go func() {
+		err := cmd.Wait()
+		stdout.SetReadDeadline(time.Now().Add(time.Second))
+		waitCh <- err
+	}()
 	defer func() {
 		r.requestCancel()
 		<-waitCh

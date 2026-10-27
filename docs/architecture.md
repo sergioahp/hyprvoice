@@ -47,6 +47,9 @@ Key interface (simplified):
 ## Recording
 `internal/recording/recording.go` defines `Recorder` with `Start/Stop/IsRecording`.
 The default implementation wraps `pw-record` and emits `AudioFrame` chunks on a buffered channel.
+`Start` waits for the first raw PCM frame before reporting readiness. `Stop`
+requests a graceful process exit, drains flushed samples, and reaps the child.
+Overflow fails the session instead of silently discarding audio.
 
 ## Transcription
 `internal/transcriber/transcriber.go` defines the core interfaces:
@@ -56,6 +59,16 @@ The default implementation wraps `pw-record` and emits `AudioFrame` chunks on a 
 - `StreamingAdapter`: `Start/SendChunk/Results/Finalize/Close` for realtime.
 
 `NewTranscriber()` selects between `SimpleTranscriber` (batch) and `StreamingTranscriber` (streaming) based on provider model metadata. Streaming adapters deliver incremental `TranscriptionResult` events and a final transcript on stop/finalize.
+
+The recorder closes its audio channel before streaming finalization. The sender
+drains queued frames, then the adapter commits pending audio and the receiver
+collects the remaining results before closing. OpenAI uses a manual final commit.
+ElevenLabs uses manual commits every 20 seconds and at stop; each commit is
+acknowledged before sending another segment. Deepgram drains until the server's
+normal close after `CloseStream`. Connection loss and provider errors fail the
+session because reconnecting without replay cannot preserve uncommitted audio.
+Socket writes and finalization waits are bounded, and cancellation closes the
+underlying connection to interrupt blocked I/O.
 
 ## LLM post-processing
 `internal/llm/llm.go` defines an `Adapter` interface with `Process(text, config)`.

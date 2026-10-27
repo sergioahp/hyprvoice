@@ -17,27 +17,22 @@ import (
 	"github.com/leonardotrapani/hyprvoice/internal/provider"
 )
 
-// default retry delays for reconnection (exponential backoff: 1s, 2s, 4s)
-var defaultRetryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
-
 // ElevenLabsStreamingAdapter implements StreamingAdapter for ElevenLabs real-time transcription
 type ElevenLabsStreamingAdapter struct {
-	endpoint  *provider.EndpointConfig
-	apiKey    string
-	model     string
-	language  string
-	keywords  []string
-	conn      *websocket.Conn
-	resultsCh chan TranscriptionResult
-	mu        sync.Mutex
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	started   bool
-
-	// reconnection config
-	maxRetries  int
-	retryDelays []time.Duration
+	endpoint     *provider.EndpointConfig
+	apiKey       string
+	model        string
+	language     string
+	keywords     []string
+	conn         *websocket.Conn
+	resultsCh    chan TranscriptionResult
+	mu           sync.Mutex
+	sendMu       sync.Mutex
+	segmentBytes int
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	started      bool
 
 	// finalization signaling
 	commitDone  chan struct{}
@@ -69,15 +64,13 @@ type elevenLabsWSMessage struct {
 // lang: provider language code
 func NewElevenLabsStreamingAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *ElevenLabsStreamingAdapter {
 	return &ElevenLabsStreamingAdapter{
-		endpoint:    endpoint,
-		apiKey:      apiKey,
-		model:       model,
-		language:    lang,
-		keywords:    keywords,
-		resultsCh:   make(chan TranscriptionResult, 100),
-		maxRetries:  3,
-		retryDelays: defaultRetryDelays,
-		commitDone:  make(chan struct{}, 1),
+		endpoint:   endpoint,
+		apiKey:     apiKey,
+		model:      model,
+		language:   lang,
+		keywords:   keywords,
+		resultsCh:  make(chan TranscriptionResult, 100),
+		commitDone: make(chan struct{}, 1),
 	}
 }
 
@@ -100,6 +93,7 @@ func (a *ElevenLabsStreamingAdapter) Start(ctx context.Context, lang string) err
 
 	// connect to WebSocket
 	if err := a.connectLocked(); err != nil {
+		a.cancel()
 		return err
 	}
 	a.started = true
@@ -131,62 +125,9 @@ func (a *ElevenLabsStreamingAdapter) connectLocked() error {
 		return fmt.Errorf("websocket dial: %w", err)
 	}
 	a.conn = conn
+	bindStreamingSocket(a.ctx, conn)
 	a.contextSent = false
 	return nil
-}
-
-// reconnect attempts to re-establish the WebSocket connection with exponential backoff.
-// Returns true if reconnection succeeded.
-func (a *ElevenLabsStreamingAdapter) reconnect() bool {
-	for attempt := 0; attempt < a.maxRetries; attempt++ {
-		// check if context cancelled
-		select {
-		case <-a.ctx.Done():
-			return false
-		default:
-		}
-
-		// wait before retry (skip wait on first attempt)
-		if attempt > 0 {
-			delay := a.retryDelays[attempt-1]
-			if attempt-1 >= len(a.retryDelays) {
-				delay = a.retryDelays[len(a.retryDelays)-1]
-			}
-			log.Printf("elevenlabs-streaming: reconnect attempt %d/%d after %v", attempt+1, a.maxRetries, delay)
-
-			select {
-			case <-a.ctx.Done():
-				return false
-			case <-time.After(delay):
-			}
-		} else {
-			log.Printf("elevenlabs-streaming: reconnect attempt %d/%d", attempt+1, a.maxRetries)
-		}
-
-		a.mu.Lock()
-		// close old connection if exists
-		if a.conn != nil {
-			a.conn.Close()
-			a.conn = nil
-		}
-
-		err := a.connectLocked()
-		a.mu.Unlock()
-
-		if err == nil {
-			log.Printf("elevenlabs-streaming: reconnected successfully")
-			// notify caller of brief interruption
-			select {
-			case a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection interrupted, reconnected"), IsFinal: false}:
-			default:
-			}
-			return true
-		}
-
-		log.Printf("elevenlabs-streaming: reconnect failed: %v", err)
-	}
-
-	return false
 }
 
 // buildURL constructs the WebSocket URL with query parameters
@@ -209,8 +150,8 @@ func (a *ElevenLabsStreamingAdapter) buildURL() (string, error) {
 		q.Set("language_code", a.language)
 	}
 
-	// use VAD for automatic commit (easier for real-time use)
-	q.Set("commit_strategy", "vad")
+	// Explicit commits let Finalize identify completion of the final segment.
+	q.Set("commit_strategy", "manual")
 
 	u.RawQuery = q.Encode()
 	return u.String(), nil
@@ -233,12 +174,8 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 		a.mu.Unlock()
 
 		if conn == nil {
-			// no connection, try to reconnect
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("connection lost, reconnection failed after %d attempts", a.maxRetries)}
-				return
-			}
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("streaming connection is closed"))})
+			return
 		}
 
 		_, message, err := conn.ReadMessage()
@@ -253,20 +190,18 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 			default:
 			}
 
-			// attempt reconnection
-			log.Printf("elevenlabs-streaming: read error: %v, attempting reconnection", err)
-			if !a.reconnect() {
-				a.resultsCh <- TranscriptionResult{Error: fmt.Errorf("websocket read: %w, reconnection failed", err)}
-				return
-			}
-			continue
+			fatal := NewFatalTranscriptionError(fmt.Errorf("websocket read: %w; recording cannot be resumed without audio loss", err))
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: fatal})
+			a.cancel()
+			return
 		}
 
 		// parse message
 		var msg elevenLabsWSMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Printf("elevenlabs-streaming: parse error: %v", err)
-			continue
+			emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: NewFatalTranscriptionError(fmt.Errorf("elevenlabs-streaming: invalid server response: %w", err))})
+			a.cancel()
+			return
 		}
 
 		// handle different message types
@@ -277,14 +212,14 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 		case "partial_transcript":
 			// interim result
 			if msg.Text != "" {
-				a.resultsCh <- TranscriptionResult{Text: msg.Text, IsFinal: false}
+				emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Text: msg.Text, IsFinal: false})
 			}
 
 		case "committed_transcript", "committed_transcript_with_timestamps":
 			// final result
 			log.Printf("elevenlabs-streaming: committed: %q", msg.Text)
 			if msg.Text != "" {
-				a.resultsCh <- TranscriptionResult{Text: msg.Text, IsFinal: true}
+				emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Text: msg.Text, IsFinal: true})
 			}
 			// signal finalization is done (non-blocking)
 			select {
@@ -303,11 +238,8 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 			}
 			log.Printf("elevenlabs-streaming: error: %s", errMsg)
 			err := fmt.Errorf("elevenlabs: %s", errMsg)
-			if isElevenLabsFatalMessageType(msg.MessageType) {
-				a.handleFatalError(err)
-				return
-			}
-			a.emitResultError(err)
+			a.handleFatalError(err)
+			return
 
 		default:
 			log.Printf("elevenlabs-streaming: unknown message type: %s payload=%s", msg.MessageType, strings.TrimSpace(string(message)))
@@ -316,10 +248,7 @@ func (a *ElevenLabsStreamingAdapter) readLoop() {
 }
 
 func (a *ElevenLabsStreamingAdapter) emitResultError(err error) {
-	select {
-	case a.resultsCh <- TranscriptionResult{Error: err}:
-	default:
-	}
+	emitStreamingResult(a.ctx, a.resultsCh, TranscriptionResult{Error: err})
 }
 
 func (a *ElevenLabsStreamingAdapter) handleFatalError(err error) {
@@ -354,7 +283,6 @@ func (a *ElevenLabsStreamingAdapter) closeConn() {
 	a.conn = nil
 	a.mu.Unlock()
 	if conn != nil {
-		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		_ = conn.Close()
 	}
 }
@@ -372,17 +300,21 @@ func isElevenLabsFatalCloseCode(code int) bool {
 	}
 }
 
-func isElevenLabsFatalMessageType(messageType string) bool {
-	switch messageType {
-	case "auth_error", "unaccepted_terms", "invalid_request", "input_error", "chunk_size_exceeded":
-		return true
-	default:
-		return false
-	}
-}
-
 // SendChunk sends audio data to the WebSocket
 func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	for len(audio) > 0 {
+		end := min(len(audio), 32000)
+		if err := a.sendChunk(audio[:end]); err != nil {
+			return err
+		}
+		audio = audio[end:]
+	}
+	return nil
+}
+
+func (a *ElevenLabsStreamingAdapter) sendChunk(audio []byte) error {
 	a.mu.Lock()
 	if !a.started {
 		a.mu.Unlock()
@@ -409,7 +341,7 @@ func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 	msg := elevenLabsInputAudioChunk{
 		MessageType: "input_audio_chunk",
 		AudioBase64: audioB64,
-		Commit:      false, // let VAD handle commits
+		Commit:      a.segmentBytes+len(audio) >= 20*16000*2,
 		SampleRate:  16000,
 	}
 
@@ -420,24 +352,28 @@ func (a *ElevenLabsStreamingAdapter) SendChunk(audio []byte) error {
 	}
 	a.mu.Unlock()
 
+	if msg.Commit {
+		select {
+		case <-a.commitDone:
+		default:
+		}
+	}
 	// send as JSON
 	a.mu.Lock()
-	err := a.conn.WriteJSON(msg)
+	err := writeStreamingJSON(a.ctx, conn, msg)
 	a.mu.Unlock()
 
 	if err != nil {
-		// attempt reconnection
-		log.Printf("elevenlabs-streaming: write error: %v, attempting reconnection", err)
-		if a.reconnect() {
-			// retry the chunk after reconnection
-			a.mu.Lock()
-			err = a.conn.WriteJSON(msg)
-			a.mu.Unlock()
-			if err == nil {
-				return nil
-			}
+		return NewFatalTranscriptionError(fmt.Errorf("websocket write: %w", err))
+	}
+	a.segmentBytes += len(audio)
+	// ElevenLabs automatically commits at about 36 seconds even in manual mode.
+	// Commit and await each 20-second segment to keep responses unambiguous.
+	if msg.Commit {
+		if err := a.waitCommit(a.ctx); err != nil {
+			return err
 		}
-		return fmt.Errorf("websocket write: %w", err)
+		a.segmentBytes = 0
 	}
 
 	return nil
@@ -451,6 +387,11 @@ func (a *ElevenLabsStreamingAdapter) Results() <-chan TranscriptionResult {
 // Finalize sends a commit message to force ElevenLabs to commit any pending audio
 // and waits for the committed_transcript response
 func (a *ElevenLabsStreamingAdapter) Finalize(ctx context.Context) error {
+	a.sendMu.Lock()
+	defer a.sendMu.Unlock()
+	if a.segmentBytes == 0 {
+		return nil
+	}
 	a.mu.Lock()
 	if !a.started {
 		a.mu.Unlock()
@@ -478,7 +419,7 @@ func (a *ElevenLabsStreamingAdapter) Finalize(ctx context.Context) error {
 	}
 
 	a.mu.Lock()
-	err := a.conn.WriteJSON(msg)
+	err := writeStreamingJSON(a.ctx, conn, msg)
 	a.mu.Unlock()
 
 	if err != nil {
@@ -488,16 +429,25 @@ func (a *ElevenLabsStreamingAdapter) Finalize(ctx context.Context) error {
 
 	log.Printf("elevenlabs-streaming: sent commit, waiting for final transcript")
 
-	// wait for committed_transcript or timeout
+	if err := a.waitCommit(ctx); err != nil {
+		return err
+	}
+	a.segmentBytes = 0
+	return nil
+}
+
+func (a *ElevenLabsStreamingAdapter) waitCommit(ctx context.Context) error {
+	timer := time.NewTimer(15 * time.Second)
+	defer timer.Stop()
 	select {
 	case <-a.commitDone:
-		log.Printf("elevenlabs-streaming: finalize complete")
 		return nil
 	case <-ctx.Done():
-		log.Printf("elevenlabs-streaming: finalize timeout")
 		return ctx.Err()
 	case <-a.ctx.Done():
 		return a.ctx.Err()
+	case <-timer.C:
+		return fmt.Errorf("timed out waiting for ElevenLabs commit")
 	}
 }
 
@@ -523,8 +473,6 @@ func (a *ElevenLabsStreamingAdapter) Close() error {
 
 	// close websocket outside of lock (readLoop may be blocked on read)
 	if conn != nil {
-		// send close frame (best effort)
-		_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		conn.Close()
 	}
 

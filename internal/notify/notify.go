@@ -1,9 +1,11 @@
 package notify
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
+	"time"
 )
 
 type Notifier interface {
@@ -39,7 +41,7 @@ func (d *Desktop) Send(mt MessageType) {
 	if !ok {
 		return
 	}
-	if msg.IsError {
+	if msg.IsError && mt != MsgRecordingAborted && mt != MsgInjectionAborted {
 		d.Error(msg.Body)
 		return
 	}
@@ -61,22 +63,24 @@ func (d *Desktop) Send(mt MessageType) {
 	case MsgContextInjectionCompleted:
 		d.persistentNotify("HyprvoiceCtx", msg.Title, "✅ Done", 5000)
 	case MsgOperationCancelled, MsgRecordingAborted, MsgInjectionAborted:
-		d.persistentNotify("Hyprvoice", msg.Title, "❌ Cancelled", 5000)
+		title := msg.Title
+		if title == "" {
+			title = "Hyprvoice"
+		}
+		d.persistentNotify("Hyprvoice", title, "❌ Cancelled", 5000)
 	default:
 		d.notify(msg.Title, msg.Body)
 	}
 }
 
 func (d *Desktop) Error(msg string) {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", "-u", "critical", "Hyprvoice Error", msg)
-	if err := cmd.Run(); err != nil {
+	if err := runNotify("-a", "Hyprvoice", "-u", "critical", "Hyprvoice Error", msg); err != nil {
 		log.Printf("Failed to send error notification: %v", err)
 	}
 }
 
 func (d *Desktop) notify(title, body string) {
-	cmd := exec.Command("notify-send", "-a", "Hyprvoice", title, body)
-	if err := cmd.Run(); err != nil {
+	if err := runNotify("-a", "Hyprvoice", title, body); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}
 }
@@ -91,10 +95,15 @@ func (d *Desktop) persistentNotify(appname, title, body string, timeoutMs int) {
 		"-t", fmt.Sprintf("%d", timeoutMs),
 		title, body,
 	}
-	cmd := exec.Command("notify-send", args...)
-	if err := cmd.Run(); err != nil {
+	if err := runNotify(args...); err != nil {
 		log.Printf("Failed to send notification: %v", err)
 	}
+}
+
+func runNotify(args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, "notify-send", args...).Run()
 }
 
 type Log struct {

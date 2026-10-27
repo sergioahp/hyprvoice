@@ -84,9 +84,9 @@ func TestPipelineCancelActionCompletes(t *testing.T) {
 	<-p.GetNotifyCh()
 	p.GetActionCh() <- Cancel
 	select {
-	case _, ok := <-p.GetNotifyCh():
-		if ok {
-			t.Fatal("unexpected notification")
+	case mt, ok := <-p.GetNotifyCh():
+		if !ok || mt != notify.MsgOperationCancelled {
+			t.Fatalf("cancel notification=%v, open=%v", mt, ok)
 		}
 	case <-ctx.Done():
 		t.Fatal("cancel action did not stop pipeline")
@@ -107,6 +107,34 @@ func TestPipelineConcurrentRunAndStop(t *testing.T) {
 		p.Stop()
 		if p.Status() != Idle {
 			t.Fatal("pipeline restarted after Stop")
+		}
+	}
+}
+
+func TestPipelineTimeoutReplacesRecordingNotification(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.Recording.Timeout = 50 * time.Millisecond
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(testutil.NewMockRecorder())),
+		WithTranscriberFactory(testutil.MockTranscriberFactory(testutil.NewMockTranscriber("unused"))),
+	)
+	p.Run(context.Background())
+	defer p.Stop()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	var last notify.MessageType
+	for {
+		select {
+		case mt, ok := <-p.GetNotifyCh():
+			if !ok {
+				if last != notify.MsgOperationCancelled {
+					t.Fatalf("terminal notification=%v", last)
+				}
+				return
+			}
+			last = mt
+		case <-deadline.C:
+			t.Fatal("pipeline did not time out")
 		}
 	}
 }

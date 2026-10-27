@@ -199,6 +199,12 @@ threads = 0                     # 0 = auto (uses NumCPU - 1)
 
 For real-time transcription, use streaming models:
 
+The final transcript is injected when recording stops. Streaming connection
+failures abort the session instead of reconnecting with potentially missing
+audio. OpenAI commits at stop; ElevenLabs commits every 20 seconds and at stop.
+If a service is slow enough to exhaust the configured audio queue, Hyprvoice
+reports an error and refuses to inject an incomplete transcript.
+
 ```toml
 # ElevenLabs streaming (realtime only)
 [transcription]

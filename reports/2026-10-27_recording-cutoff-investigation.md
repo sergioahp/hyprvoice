@@ -84,3 +84,60 @@ Changes are in the repository. The running systemd service still uses its
 previous Nix package; it has not been rebuilt or restarted by this investigation.
 These fixes do not implement continuous microphone capture or pre-roll, so users
 must still wait for the now-accurate readiness notification before speaking.
+
+## Independent review and follow-up
+
+The first implementation was committed as `e37357b`, then independently reviewed
+by a subagent at the user's request. The review identified seven additional
+problems, all addressed in the follow-up:
+
+1. Automatic streaming reconnects could abandon earlier uncommitted audio and
+   inject only a suffix. Reconnects were removed; a disconnected session now fails.
+2. Finalization accepted an unrelated earlier segment's completion. OpenAI now
+   disables VAD and commits manually at stop. ElevenLabs commits manually every
+   20 seconds and awaits each response, then separately commits the tail.
+   Deepgram waits for the terminal normal server close after `CloseStream`,
+   preserving all final segments.
+3. WebSocket writes could block while holding the adapter mutex, preventing
+   cancellation. Established sockets now close on context cancellation, writes
+   have deadlines, and finalization waits are bounded. Close no longer writes
+   a competing unbounded WebSocket close message. Result delivery also responds
+   to cancellation when a consumer stops reading.
+4. Connection checks and subsequent writes could use different pointer values,
+   including nil after a failed reconnect. Writes now use the checked connection.
+5. A descendant holding the recorder's manual stdout pipe could prevent Stop
+   from returning even after the parent exited. A pipe read deadline now bounds
+   this case, with a regression that creates an inheriting child process.
+6. A stalled `notify-send` could block the joined session monitors forever.
+   Notification commands now have a two-second timeout and are stubbed in tests.
+7. Errors, timeouts, and reloads could leave the persistent recording notification
+   visible. Unsuccessful announced sessions now emit a terminal cancellation
+   event. Abort notifications also reach the persistent replacement branch even
+   when their unchanged default message definition marks them as errors.
+
+A second review found that Deepgram's structured Error responses could still
+permit partial transcript injection. Both nested and top-level error fields are
+now handled; a server Error or malformed streaming response fails the session.
+OpenAI commit rejection and failed transcription also terminate promptly. The
+reviewer confirmed that this resolves the remaining blocker and found no further
+blocking concern in the reviewed changes.
+
+Provider behavior was checked against the official
+[Deepgram CloseStream documentation](https://developers.deepgram.com/docs/close-stream),
+[OpenAI realtime transcription guide](https://developers.openai.com/api/docs/guides/realtime-transcription),
+and [ElevenLabs commit strategy guide](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/transcripts-and-commit-strategies).
+The ElevenLabs guide explicitly notes that manual mode still automatically
+commits at about 36 seconds. The 20-second acknowledged segments avoid crossing
+that boundary. Waiting for segment completion can fill the recorder queue on a
+slow service; the session then fails explicitly rather than dropping audio.
+
+Final verification: 392 passing tests and two skipped tests across repository
+packages excluding injection and ignored scratch packages; 16 passing injection
+tests in a separate invocation. Both runs used the race detector. Build and
+`go vet` passed for `cmd/hyprvoice` and `internal/...`. Structured logs are retained
+in `tmp/tests_2026-10-27_03-34-53.jsonl` and
+`tmp/tests_2026-10-27_03-35-00.jsonl`. Regression coverage includes normal terminal
+stream closure, disconnect without replay, rejected commits, the final tail
+after periodic manual commits, blocked socket cancellation, provider errors
+after a partial result, malformed responses, inherited pipes, notification
+timeouts, and persistent notification replacement on timeout.
