@@ -111,7 +111,7 @@ Configure in your `home.nix`:
         buffer_size = 8192;
         device = "";
         channel_buffer_size = 30;
-        timeout = "5m";
+        timeout = "12m";
       };
       transcription = {
         provider = "openai";  # or "groq-transcription" or "groq-translation"

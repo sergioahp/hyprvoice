@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/leonardotrapani/hyprvoice/internal/config"
 	"github.com/leonardotrapani/hyprvoice/internal/injection"
@@ -139,7 +140,7 @@ func (p *pipeline) Run(ctx context.Context) {
 		return
 	}
 
-	runCtx, cancel := context.WithTimeout(ctx, p.config.Recording.Timeout)
+	runCtx, cancel := context.WithCancel(ctx)
 	p.started = true
 	p.status = Recording
 	p.cancel = cancel
@@ -210,6 +211,9 @@ func (p *pipeline) run(ctx context.Context) {
 		}
 	}()
 
+	recordingLimit := time.NewTimer(p.config.Recording.Timeout)
+	defer recordingLimit.Stop()
+
 	for {
 		select {
 		case err, ok := <-rErrCh:
@@ -234,11 +238,20 @@ func (p *pipeline) run(ctx context.Context) {
 		case action := <-p.actionCh:
 			switch action {
 			case Inject:
-				completed = p.handleInjectAction(ctx, recorder, t, rErrCh)
+				completed = p.handleInjectAction(ctx, recorder, t, rErrCh, p.config.ToInjectionConfig())
 				return
 			case Cancel:
 				return
 			}
+
+		case <-recordingLimit.C:
+			log.Printf("Pipeline: Recording limit %v reached, finalizing transcription", p.config.Recording.Timeout)
+			// Nobody chose this moment, so the focused window may be anything;
+			// typed injection has previously hit a session-ending keybind.
+			injectionCfg := p.config.ToInjectionConfig()
+			injectionCfg.Backends = []string{"clipboard"}
+			completed = p.handleInjectAction(ctx, recorder, t, rErrCh, injectionCfg)
+			return
 
 		case <-ctx.Done():
 			return
@@ -310,7 +323,7 @@ func (p *pipeline) sendNotify(mt notify.MessageType) {
 	}
 }
 
-func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber, rErrCh <-chan error) bool {
+func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Recorder, t transcriber.Transcriber, rErrCh <-chan error, injectionCfg injection.Config) bool {
 	status := p.Status()
 
 	if status != Transcribing {
@@ -396,7 +409,7 @@ func (p *pipeline) handleInjectAction(ctx context.Context, recorder recording.Re
 		return r
 	}, textToInject)
 
-	injector := p.injectorFactory(p.config.ToInjectionConfig())
+	injector := p.injectorFactory(injectionCfg)
 	if ctx.Err() != nil {
 		return false
 	}

@@ -410,7 +410,7 @@ format = "s16"             # Audio format (s16 = 16-bit signed integers)
 buffer_size = 8192         # Internal buffer size in bytes (larger = less CPU, more latency)
 device = ""                # PipeWire device name (empty = default microphone)
 channel_buffer_size = 30   # Audio frame buffer size (frames to buffer)
-timeout = "5m"             # Maximum recording duration (e.g., "30s", "2m", "5m")
+timeout = "12m"            # Maximum recording duration (e.g., "30s", "2m", "12m")
 ```
 
 Transcription adapters require 16000 Hz, mono, `s16` audio. Other sample rates,
@@ -423,9 +423,13 @@ logged by the daemon.
 ### Recording Timeout
 
 - Prevents accidental long recordings that could consume resources
-- Default: 5 minutes (`"5m"`)
+- Default: 12 minutes (`"12m"`). Audio is 1.92 MB per minute, so 13 minutes
+  reaches OpenAI's 25 MB request limit
 - Format: Go duration strings like `"30s"`, `"2m"`, `"10m"`
-- Recording automatically stops when timeout is reached
+- When the timeout is reached, recording stops and the captured audio is
+  transcribed. The text goes to the clipboard regardless of `backends`, since
+  nobody chose that moment to type into the focused window
+- Only capture is limited. Toggle to cancel a stuck upload or LLM request
 
 ## Text Injection
 

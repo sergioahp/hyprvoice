@@ -36,7 +36,7 @@ type ElevenLabsResponse struct {
 // lang: provider language code
 func NewElevenLabsAdapter(endpoint *provider.EndpointConfig, apiKey, model, lang string, keywords []string) *ElevenLabsAdapter {
 	return &ElevenLabsAdapter{
-		client:   &http.Client{Timeout: 30 * time.Second},
+		client:   &http.Client{},
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		model:    model,

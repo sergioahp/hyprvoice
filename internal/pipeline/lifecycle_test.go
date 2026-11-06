@@ -6,9 +6,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/leonardotrapani/hyprvoice/internal/injection"
 	"github.com/leonardotrapani/hyprvoice/internal/notify"
 	"github.com/leonardotrapani/hyprvoice/internal/testutil"
+	"github.com/leonardotrapani/hyprvoice/internal/transcriber"
 )
+
+func lastNotification(t *testing.T, p Pipeline) notify.MessageType {
+	t.Helper()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	var last notify.MessageType
+	for {
+		select {
+		case mt, ok := <-p.GetNotifyCh():
+			if !ok {
+				return last
+			}
+			last = mt
+		case <-deadline.C:
+			t.Fatal("pipeline did not finish")
+		}
+	}
+}
 
 func TestPipelineReadinessAndCompletion(t *testing.T) {
 	for _, prompt := range []string{"", "terminal context"} {
@@ -114,27 +134,83 @@ func TestPipelineConcurrentRunAndStop(t *testing.T) {
 func TestPipelineTimeoutReplacesRecordingNotification(t *testing.T) {
 	cfg := testutil.TestConfig()
 	cfg.Recording.Timeout = 50 * time.Millisecond
+	mockTranscriber := testutil.NewMockTranscriber("unused")
+	mockTranscriber.StopError = errors.New("upload failed")
 	p := New(cfg,
 		WithRecorderFactory(testutil.MockRecorderFactory(testutil.NewMockRecorder())),
-		WithTranscriberFactory(testutil.MockTranscriberFactory(testutil.NewMockTranscriber("unused"))),
+		WithTranscriberFactory(testutil.MockTranscriberFactory(mockTranscriber)),
+		WithInjectorFactory(testutil.MockInjectorFactory(testutil.NewMockInjector())),
 	)
 	p.Run(context.Background())
 	defer p.Stop()
-	deadline := time.NewTimer(2 * time.Second)
-	defer deadline.Stop()
-	var last notify.MessageType
-	for {
-		select {
-		case mt, ok := <-p.GetNotifyCh():
-			if !ok {
-				if last != notify.MsgOperationCancelled {
-					t.Fatalf("terminal notification=%v", last)
-				}
-				return
+	if last := lastNotification(t, p); last != notify.MsgOperationCancelled {
+		t.Fatalf("terminal notification=%v", last)
+	}
+}
+
+func TestPipelineTimeoutTranscribesCapturedAudio(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.Recording.Timeout = 50 * time.Millisecond
+	var audioBytes int
+	var transcribeCtxErr error
+	adapter := &testutil.MockTranscriberAdapter{
+		TranscribeFunc: func(ctx context.Context, audio []byte) (string, error) {
+			audioBytes, transcribeCtxErr = len(audio), ctx.Err()
+			return "hello", ctx.Err()
+		},
+	}
+	injector := testutil.NewMockInjector()
+	var backends []string
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(testutil.NewMockRecorder())),
+		WithTranscriberFactory(func(c transcriber.Config) (transcriber.Transcriber, error) {
+			return transcriber.NewSimpleTranscriber(c, adapter), nil
+		}),
+		WithInjectorFactory(func(c injection.Config) injection.Injector {
+			backends = c.Backends
+			return injector
+		}),
+	)
+	p.Run(context.Background())
+	defer p.Stop()
+	if last := lastNotification(t, p); last != notify.MsgInjectionCompleted {
+		t.Fatalf("terminal notification=%v", last)
+	}
+	if audioBytes == 0 || transcribeCtxErr != nil {
+		t.Fatalf("audioBytes=%d ctxErr=%v", audioBytes, transcribeCtxErr)
+	}
+	if got := injector.GetInjectedTexts(); len(got) != 1 || got[0] != "hello" {
+		t.Fatalf("injected=%q", got)
+	}
+	if len(backends) != 1 || backends[0] != "clipboard" {
+		t.Fatalf("unattended injection backends=%q", backends)
+	}
+}
+
+func TestRecordingTimeoutDoesNotBoundUpload(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.Recording.Timeout = 50 * time.Millisecond
+	adapter := &testutil.MockTranscriberAdapter{
+		TranscribeFunc: func(ctx context.Context, audio []byte) (string, error) {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(150 * time.Millisecond):
+				return "hello", nil
 			}
-			last = mt
-		case <-deadline.C:
-			t.Fatal("pipeline did not time out")
-		}
+		},
+	}
+	p := New(cfg,
+		WithRecorderFactory(testutil.MockRecorderFactory(testutil.NewMockRecorder())),
+		WithTranscriberFactory(func(c transcriber.Config) (transcriber.Transcriber, error) {
+			return transcriber.NewSimpleTranscriber(c, adapter), nil
+		}),
+		WithInjectorFactory(testutil.MockInjectorFactory(testutil.NewMockInjector())),
+	)
+	p.Run(context.Background())
+	defer p.Stop()
+	p.GetActionCh() <- Inject
+	if last := lastNotification(t, p); last != notify.MsgInjectionCompleted {
+		t.Fatalf("terminal notification=%v", last)
 	}
 }

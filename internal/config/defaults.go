@@ -12,7 +12,8 @@ func DefaultConfig() *Config {
 			BufferSize:        8192,
 			Device:            "",
 			ChannelBufferSize: 30,
-			Timeout:           5 * time.Minute,
+			// 16 kHz mono s16 is 1.92 MB/min; OpenAI caps upload requests at 25 MB.
+			Timeout: 12 * time.Minute,
 		},
 		Transcription: TranscriptionConfig{
 			Language:  "",

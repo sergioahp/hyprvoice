@@ -784,7 +784,7 @@ func newRecordingSettingsScreen(state *wizardState, onBack func() screen) screen
 			return nil
 		}),
 		makeInputField("device", "Device", "Leave empty for default microphone.", cfg.Device, "(default)", nil),
-		makeInputField("timeout", "Recording Timeout", "Examples: 30s, 2m, 5m.", cfg.Timeout.String(), "5m", func(s string) error {
+		makeInputField("timeout", "Recording Timeout", "Examples: 30s, 2m, 12m.", cfg.Timeout.String(), "12m", func(s string) error {
 			if _, err := time.ParseDuration(s); err != nil {
 				return fmt.Errorf("invalid duration format")
 			}
